@@ -1,0 +1,26 @@
+# Hadirin - root Apache configuration
+
+# Disable directory listing
+Options -Indexes
+Options -MultiViews
+
+# Block access to dotfiles (.env, .git, .htaccess itself, etc.)
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Block direct access to sensitive project files that must never be served
+<FilesMatch "(composer\.json|composer\.lock|database\.sql|README\.md)$">
+    Require all denied
+</FilesMatch>
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# Disable server signature
+ServerSignature Off

@@ -1,0 +1,41 @@
+# =====================================================================
+# HADIRIN — .gitignore
+# =====================================================================
+
+# ---- Dependensi (dibuat ulang dengan: composer install) ----
+/vendor/
+
+# ---- Konfigurasi lokal / kredensial ----
+.env
+.env.*
+!.env.example
+
+# ---- Tooling lokal per-mesin (berisi path absolut) ----
+.claude/
+.trae/
+.vscode/
+.idea/
+*.code-workspace
+
+# ---- Runtime storage (unggahan / cache / QR sementara) ----
+/storage/*
+!/storage/.htaccess
+
+# ---- Log & file sementara ----
+*.log
+logs/
+*.tmp
+*.temp
+*.bak
+*.orig
+*.swp
+
+# ---- Cache tooling PHP ----
+/.phpunit.result.cache
+/.php-cs-fixer.cache
+/.php-cs-fixer.php.cache
+
+# ---- Berkas sistem operasi ----
+.DS_Store
+Thumbs.db
+desktop.ini
