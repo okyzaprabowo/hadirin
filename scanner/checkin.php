@@ -20,7 +20,7 @@ $guestIds = array_values(array_unique(array_map('intval', is_array($guestIdsRaw)
 $guestIds = array_filter($guestIds, fn($v) => $v > 0);
 
 if ($token === '') {
-    json_response(['success' => false, 'message' => 'Token QR tidak valid.'], 422);
+    json_response(['success' => false, 'message' => 'Token barcode tidak valid.'], 422);
 }
 if (count($guestIds) === 0) {
     json_response(['success' => false, 'message' => 'Pilih minimal satu tamu untuk check-in.'], 422);
@@ -42,7 +42,7 @@ if (!$event) {
 try {
     $db->beginTransaction();
 
-    // 4. Validate QR token + lock group row
+    // 4. Validate barcode token + lock group row
     $groupStmt = $db->prepare('SELECT * FROM guest_groups WHERE qr_token = :token LIMIT 1 FOR UPDATE');
     $groupStmt->execute(['token' => $token]);
     $group = $groupStmt->fetch();
@@ -55,12 +55,12 @@ try {
         );
         $log->execute([
             'scanned_by' => $user['id'], 'action' => 'rejected',
-            'message' => 'Token QR tidak ditemukan saat check-in.', 'scanned_at' => date('Y-m-d H:i:s'),
+            'message' => 'Token barcode tidak ditemukan saat check-in.', 'scanned_at' => date('Y-m-d H:i:s'),
         ]);
-        json_response(['success' => false, 'message' => 'QR Code tidak valid atau tidak terdaftar.'], 404);
+        json_response(['success' => false, 'message' => 'Barcode tidak valid atau tidak terdaftar.'], 404);
     }
 
-    // 5. Pastikan QR milik event aktif yang dipilih petugas
+    // 5. Pastikan barcode milik event aktif yang dipilih petugas
     if ((int) $group['event_id'] !== $eventId) {
         $db->rollBack();
         $log = $db->prepare(
@@ -69,9 +69,9 @@ try {
         );
         $log->execute([
             'group_id' => $group['id'], 'scanned_by' => $user['id'], 'action' => 'rejected',
-            'message' => 'QR milik event lain (' . $event['event_name'] . ') saat check-in.', 'scanned_at' => date('Y-m-d H:i:s'),
+            'message' => 'Barcode milik event lain (' . $event['event_name'] . ') saat check-in.', 'scanned_at' => date('Y-m-d H:i:s'),
         ]);
-        json_response(['success' => false, 'message' => 'QR ini bukan milik event "' . $event['event_name'] . '". Periksa kembali event yang dipilih.'], 403);
+        json_response(['success' => false, 'message' => 'Barcode ini bukan milik event "' . $event['event_name'] . '". Periksa kembali event yang dipilih.'], 403);
     }
 
     // 6. Check group status

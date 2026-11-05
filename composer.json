@@ -1,11 +1,11 @@
 {
     "name": "hadirin/app",
-    "description": "Hadirin - Smart Guest Management & QR Check-in System",
+    "description": "Hadirin - Smart Guest Management & Barcode Check-in System",
     "type": "project",
     "license": "proprietary",
     "require": {
         "php": ">=8.2",
-        "endroid/qr-code": "^5.0"
+        "picqer/php-barcode-generator": "^3.0"
     },
     "config": {
         "optimize-autoloader": true,

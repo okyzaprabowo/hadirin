@@ -126,7 +126,7 @@ require __DIR__ . '/../includes/sidebar.php';
               <td class="text-end">
                 <a href="<?= e(base_url('groups/detail.php?id=' . $g['id'])) ?>" class="btn btn-sm btn-outline-primary" title="Detail"><i class="bi bi-eye"></i></a>
                 <a href="<?= e(base_url('groups/edit.php?id=' . $g['id'])) ?>" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
-                <a href="<?= e(base_url('groups/qr.php?id=' . $g['id'])) ?>" class="btn btn-sm btn-outline-dark" title="QR Code"><i class="bi bi-qr-code"></i></a>
+                <a href="<?= e(base_url('groups/barcode.php?id=' . $g['id'])) ?>" class="btn btn-sm btn-outline-dark" title="Barcode"><i class="bi bi-upc"></i></a>
                 <?php if ((int) $g['total_present'] === 0): ?>
                   <button type="button" class="btn btn-sm btn-outline-danger btn-delete-group"
                           data-id="<?= (int) $g['id'] ?>" data-name="<?= e($g['group_name']) ?>" title="Hapus">

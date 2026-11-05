@@ -79,7 +79,7 @@ require __DIR__ . '/../includes/sidebar.php';
               <td><?= $g['status'] === 'active' ? '<span class="badge text-bg-success">Aktif</span>' : '<span class="badge text-bg-secondary">Nonaktif</span>' ?></td>
               <td class="text-end">
                 <a href="<?= e(base_url('groups/detail.php?id=' . $g['id'])) ?>" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
-                <a href="<?= e(base_url('groups/qr.php?id=' . $g['id'])) ?>" class="btn btn-sm btn-outline-dark"><i class="bi bi-qr-code"></i></a>
+                <a href="<?= e(base_url('groups/barcode.php?id=' . $g['id'])) ?>" class="btn btn-sm btn-outline-dark"><i class="bi bi-upc"></i></a>
               </td>
             </tr>
           <?php endforeach; ?>

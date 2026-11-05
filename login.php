@@ -56,7 +56,7 @@ $pageTitle = 'Login';
 <body class="login-page">
   <div class="login-card">
     <div class="text-center mb-4">
-      <i class="bi bi-qr-code-scan login-logo"></i>
+      <i class="bi bi-upc-scan login-logo"></i>
       <h1 class="login-title"><?= e(APP_NAME) ?></h1>
       <p class="login-tagline"><?= e(APP_TAGLINE) ?></p>
     </div>

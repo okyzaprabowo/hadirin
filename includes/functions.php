@@ -89,11 +89,13 @@ function old_get_all(): array
 }
 
 /**
- * Generates a cryptographically secure, URL-safe QR token.
+ * Generates a cryptographically secure, URL-safe barcode token.
+ * Kept short (80 bits of entropy) so the rendered Code128 barcode stays
+ * compact and reliably scannable on a phone screen or printed sticker.
  */
-function generate_qr_token(): string
+function generate_barcode_token(): string
 {
-    return bin2hex(random_bytes(32));
+    return bin2hex(random_bytes(10));
 }
 
 function format_datetime(?string $value, string $format = 'd M Y H:i'): string

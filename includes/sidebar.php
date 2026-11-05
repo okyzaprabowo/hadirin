@@ -33,8 +33,8 @@ function nav_active(string $scriptPath, string $needle): string
       <a class="nav-link <?= nav_active($scriptPath, '/guests/') ?>" href="<?= e(base_url('guests/index.php')) ?>">
         <i class="bi bi-person-lines-fill"></i> Data Tamu
       </a>
-      <a class="nav-link <?= nav_active($scriptPath, '/groups/qr.php') ?>" href="<?= e(base_url('groups/index.php')) ?>">
-        <i class="bi bi-qr-code"></i> QR Code
+      <a class="nav-link <?= nav_active($scriptPath, '/groups/barcode.php') ?>" href="<?= e(base_url('groups/index.php')) ?>">
+        <i class="bi bi-upc"></i> Barcode
       </a>
       <a class="nav-link <?= nav_active($scriptPath, '/monitoring/') ?>" href="<?= e(base_url('monitoring/index.php')) ?>">
         <i class="bi bi-activity"></i> Monitoring Kehadiran
@@ -57,7 +57,7 @@ function nav_active(string $scriptPath, string $needle): string
         <i class="bi bi-speedometer2"></i> Dashboard Petugas
       </a>
       <a class="nav-link <?= nav_active($scriptPath, '/scanner/index.php') ?>" href="<?= e(base_url('scanner/index.php')) ?>">
-        <i class="bi bi-qr-code-scan"></i> Scan QR Code
+        <i class="bi bi-upc-scan"></i> Scan Barcode
       </a>
       <a class="nav-link <?= nav_active($scriptPath, '/scanner/history.php') ?>" href="<?= e(base_url('scanner/history.php')) ?>">
         <i class="bi bi-clock-history"></i> Riwayat Scan

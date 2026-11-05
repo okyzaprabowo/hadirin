@@ -14,7 +14,7 @@ ini_set('log_errors', '1');
 
 define('APP_ROOT', dirname(__DIR__));
 define('APP_NAME', 'Hadirin');
-define('APP_TAGLINE', 'Smart Guest Management & QR Check-in System');
+define('APP_TAGLINE', 'Smart Guest Management & Barcode Check-in System');
 
 if (file_exists(APP_ROOT . '/vendor/autoload.php')) {
     require_once APP_ROOT . '/vendor/autoload.php';
@@ -24,7 +24,7 @@ require_once APP_ROOT . '/config/database.php';
 require_once APP_ROOT . '/config/csrf.php';
 require_once APP_ROOT . '/config/auth.php';
 require_once APP_ROOT . '/includes/functions.php';
-require_once APP_ROOT . '/includes/qr_helper.php';
+require_once APP_ROOT . '/includes/barcode_helper.php';
 
 hadirin_session_start();
 hadirin_enforce_session_timeout();

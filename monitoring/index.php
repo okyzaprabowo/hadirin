@@ -6,12 +6,14 @@ require_role('admin');
 $db = get_db();
 $pageTitle = 'Monitoring Kehadiran';
 
-$eventName = input_str($_GET, 'event_name');
+$eventId = input_int($_GET, 'event_id', 0);
 $groupName = input_str($_GET, 'group_name');
 $guestName = input_str($_GET, 'guest_name');
 $status = input_str($_GET, 'status');
 $dateFrom = input_str($_GET, 'date_from');
 $dateTo = input_str($_GET, 'date_to');
+
+$allEvents = $db->query('SELECT id, event_name FROM events ORDER BY event_name ASC')->fetchAll();
 
 $officerActivity = $db->query(
     "SELECT u.full_name, COUNT(cl.id) AS total_checkins
@@ -32,7 +34,12 @@ require __DIR__ . '/../includes/sidebar.php';
     <div class="card-body">
       <form id="filterForm" class="row g-2">
         <div class="col-md-2">
-          <input type="text" name="event_name" class="form-control" placeholder="Nama event..." value="<?= e($eventName) ?>">
+          <select name="event_id" class="form-select">
+            <option value="0">Semua Event</option>
+            <?php foreach ($allEvents as $ev): ?>
+              <option value="<?= (int) $ev['id'] ?>" <?= $eventId === (int) $ev['id'] ? 'selected' : '' ?>><?= e($ev['event_name']) ?></option>
+            <?php endforeach; ?>
+          </select>
         </div>
         <div class="col-md-2">
           <input type="text" name="group_name" class="form-control" placeholder="Nama grup..." value="<?= e($groupName) ?>">
@@ -86,6 +93,10 @@ require __DIR__ . '/../includes/sidebar.php';
             </table>
           </div>
         </div>
+        <div class="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2 bg-white">
+          <small class="text-muted" id="monitorPageInfo"></small>
+          <nav><ul class="pagination pagination-sm mb-0" id="monitorPagination"></ul></nav>
+        </div>
       </div>
     </div>
     <div class="col-lg-4">
@@ -116,8 +127,49 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+let monitorPage = 1;
+
+function renderPagination(pagination) {
+  const info = document.getElementById('monitorPageInfo');
+  const nav = document.getElementById('monitorPagination');
+
+  if (!pagination || pagination.total === 0) {
+    info.textContent = '';
+    nav.innerHTML = '';
+    return;
+  }
+
+  const start = (pagination.page - 1) * pagination.per_page + 1;
+  const end = Math.min(pagination.page * pagination.per_page, pagination.total);
+  info.textContent = `Menampilkan ${start}-${end} dari ${pagination.total} data`;
+
+  let html = '';
+  html += `<li class="page-item ${pagination.page <= 1 ? 'disabled' : ''}">
+    <button type="button" class="page-link" data-page="${pagination.page - 1}">&laquo;</button>
+  </li>`;
+  for (let i = 1; i <= pagination.total_pages; i++) {
+    html += `<li class="page-item ${i === pagination.page ? 'active' : ''}">
+      <button type="button" class="page-link" data-page="${i}">${i}</button>
+    </li>`;
+  }
+  html += `<li class="page-item ${pagination.page >= pagination.total_pages ? 'disabled' : ''}">
+    <button type="button" class="page-link" data-page="${pagination.page + 1}">&raquo;</button>
+  </li>`;
+  nav.innerHTML = html;
+
+  nav.querySelectorAll('.page-link').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = parseInt(btn.dataset.page, 10);
+      if (!target || target < 1 || target > pagination.total_pages || target === pagination.page) return;
+      monitorPage = target;
+      loadMonitoringData();
+    });
+  });
+}
+
 function loadMonitoringData() {
   const params = new URLSearchParams(new FormData(document.getElementById('filterForm')));
+  params.set('page', monitorPage);
   fetch('<?= e(base_url('monitoring/data.php')) ?>?' + params.toString())
     .then(r => r.json())
     .then(data => {
@@ -140,6 +192,7 @@ function loadMonitoringData() {
           </tr>
         `).join('');
       }
+      renderPagination(data.pagination);
       document.getElementById('lastUpdated').textContent = 'Diperbarui ' + new Date().toLocaleTimeString('id-ID');
     })
     .catch(() => {
@@ -147,7 +200,10 @@ function loadMonitoringData() {
     });
 }
 
-document.getElementById('filterForm').addEventListener('input', loadMonitoringData);
+document.getElementById('filterForm').addEventListener('input', function () {
+  monitorPage = 1;
+  loadMonitoringData();
+});
 loadMonitoringData();
 setInterval(loadMonitoringData, 30000);
 </script>

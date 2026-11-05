@@ -29,7 +29,7 @@ if (!$event) {
 }
 
 if ($token === '' || !preg_match('/^[a-f0-9]{16,100}$/i', $token)) {
-    json_response(['success' => false, 'message' => 'QR Code tidak valid atau tidak terdaftar.'], 404);
+    json_response(['success' => false, 'message' => 'Barcode tidak valid atau tidak terdaftar.'], 404);
 }
 
 $stmt = $db->prepare('SELECT * FROM guest_groups WHERE qr_token = :token LIMIT 1');
@@ -44,13 +44,13 @@ if (!$group) {
     $log->execute([
         'scanned_by' => $user['id'],
         'action'     => 'rejected',
-        'message'    => 'Token QR tidak ditemukan.',
+        'message'    => 'Token barcode tidak ditemukan.',
         'scanned_at' => date('Y-m-d H:i:s'),
     ]);
-    json_response(['success' => false, 'message' => 'QR Code tidak valid atau tidak terdaftar.'], 404);
+    json_response(['success' => false, 'message' => 'Barcode tidak valid atau tidak terdaftar.'], 404);
 }
 
-// 2. QR harus milik event aktif yang dipilih petugas
+// 2. Barcode harus milik event aktif yang dipilih petugas
 if ((int) $group['event_id'] !== $eventId) {
     $log = $db->prepare(
         'INSERT INTO checkin_logs (guest_id, group_id, scanned_by, action, message, scanned_at)
@@ -60,10 +60,10 @@ if ((int) $group['event_id'] !== $eventId) {
         'group_id'   => $group['id'],
         'scanned_by' => $user['id'],
         'action'     => 'rejected',
-        'message'    => 'QR milik event lain (' . $event['event_name'] . ').',
+        'message'    => 'Barcode milik event lain (' . $event['event_name'] . ').',
         'scanned_at' => date('Y-m-d H:i:s'),
     ]);
-    json_response(['success' => false, 'message' => 'QR ini bukan milik event "' . $event['event_name'] . '". Periksa kembali event yang dipilih.'], 403);
+    json_response(['success' => false, 'message' => 'Barcode ini bukan milik event "' . $event['event_name'] . '". Periksa kembali event yang dipilih.'], 403);
 }
 
 if ($group['status'] !== 'active') {
@@ -102,7 +102,7 @@ foreach ($guests as $g) {
 
 json_response([
     'success' => true,
-    'message' => 'QR Code Valid',
+    'message' => 'Barcode Valid',
     'event'   => [
         'id'         => (int) $event['id'],
         'event_name' => $event['event_name'],

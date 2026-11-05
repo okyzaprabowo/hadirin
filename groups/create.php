@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$errors) {
         try {
-            $qrToken = generate_qr_token();
+            $qrToken = generate_barcode_token();
             $now = date('Y-m-d H:i:s');
 
             $stmt = $db->prepare(
@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             audit_log($db, (int) current_user()['id'], 'create_group', 'guest_group', $groupId,
                 'Membuat grup "' . $form['group_name'] . '" pada event #' . $form['event_id']);
 
-            flash_set('success', 'Grup undangan berhasil dibuat dan QR Code telah digenerate. Selanjutnya tambahkan tamu pada grup ini.');
+            flash_set('success', 'Grup undangan berhasil dibuat dan Barcode telah digenerate. Selanjutnya tambahkan tamu pada grup ini.');
             redirect(base_url('groups/detail.php?id=' . $groupId));
         } catch (Throwable $e) {
             error_log('[Hadirin] Failed to create group: ' . $e->getMessage());
@@ -142,7 +142,7 @@ require __DIR__ . '/../includes/sidebar.php';
       </div>
     </div>
 
-    <button type="submit" class="btn btn-primary btn-lg" <?= !$allEvents ? 'disabled' : '' ?>><i class="bi bi-qr-code"></i> Simpan dan Generate QR</button>
+    <button type="submit" class="btn btn-primary btn-lg" <?= !$allEvents ? 'disabled' : '' ?>><i class="bi bi-upc"></i> Simpan dan Generate Barcode</button>
     <a href="<?= e(base_url('groups/index.php')) ?>" class="btn btn-outline-secondary btn-lg">Batal</a>
   </form>
 </div>

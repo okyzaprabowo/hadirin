@@ -1,14 +1,16 @@
 # Hadirin
 
-**Smart Guest Management & QR Check-in System**
+**Smart Guest Management & Barcode Check-in System**
 
 Hadirin mengelola undangan dan kehadiran tamu untuk acara, seminar, pertemuan,
 konferensi, dan kegiatan organisasi, menggunakan konsep:
 
-> **1 Event → Banyak Grup Undangan → Banyak Tamu**, dengan **1 QR Code = 1 Grup Undangan**
+> **1 Event → Banyak Grup Undangan → Banyak Tamu**, dengan **1 Barcode = 1 Grup Undangan**
 
 Dibangun dengan PHP Native 8.2+, MySQL/MariaDB (PDO + prepared statements),
-Bootstrap 5, dan `endroid/qr-code`. Tidak menggunakan framework backend atau
+Bootstrap 5, dan `picqer/php-barcode-generator` (barcode Code128 — bukan QR).
+Input barcode di sisi petugas memakai barcode scanner genggam (USB/Bluetooth)
+atau input manual — lihat bagian 7. Tidak menggunakan framework backend atau
 frontend apa pun, dan tidak membutuhkan Node.js untuk berjalan.
 
 ## 1. Kebutuhan Sistem
@@ -17,9 +19,8 @@ frontend apa pun, dan tidak membutuhkan Node.js untuk berjalan.
 - MySQL 8.x atau MariaDB 10.4+.
 - Composer.
 - Apache dengan `mod_rewrite` dan `mod_headers` (umumnya tersedia di XAMPP dan shared hosting cPanel).
-- HTTPS **wajib** untuk mengaktifkan kamera pada scanner QR di smartphone,
-  **kecuali** saat diakses melalui `localhost` (browser mengizinkan akses
-  kamera di localhost melalui HTTP biasa).
+- Barcode scanner USB/Bluetooth genggam (mode keyboard-wedge/HID) untuk digunakan
+  di lapangan — lihat bagian 7.
 
 ## 2. Instalasi di Localhost (XAMPP / Laragon)
 
@@ -55,7 +56,7 @@ frontend apa pun, dan tidak membutuhkan Node.js untuk berjalan.
 7. Akses aplikasi di `http://localhost/hadirin`.
 
 Data contoh (3 grup undangan beserta tamunya) sudah disertakan di `database.sql`
-agar fitur CRUD, QR, dan scanner dapat langsung diuji setelah akun admin dibuat.
+agar fitur CRUD, barcode, dan scanner dapat langsung diuji setelah akun admin dibuat.
 
 ## 3. Instalasi di Shared Hosting / cPanel
 
@@ -86,8 +87,7 @@ agar fitur CRUD, QR, dan scanner dapat langsung diuji setelah akun admin dibuat.
    produksi (dengan kredensial yang sama) lalu putuskan koneksi, atau minta
    penyedia hosting mengaktifkan akses SSH sementara.
 7. Aktifkan **HTTPS** (AutoSSL / Let's Encrypt tersedia gratis di hampir semua
-   cPanel) — ini **wajib** agar kamera scanner dapat diakses dari smartphone
-   di luar localhost.
+   cPanel) agar session cookie dan kredensial login terenkripsi saat dikirim.
 8. Login menggunakan akun admin yang sudah dibuat di langkah 6.
 
 ### Keamanan file sensitif di shared hosting
@@ -118,21 +118,23 @@ hosting murah tidak mengizinkan document root dipindah.
 ## 4. Konsep & Alur Penggunaan
 
 Alur data berjenjang: **Event → Grup Undangan → Tamu**
-(1 Event punya banyak Grup, 1 Grup punya banyak Tamu, 1 QR Code per Grup).
+(1 Event punya banyak Grup, 1 Grup punya banyak Tamu, 1 Barcode per Grup).
 
 1. **Admin** membuat **Event** terlebih dahulu (nama event, tanggal, lokasi).
 2. **Admin** membuat **Grup Undangan** di dalam event tersebut (nama grup,
-   kuota, penanggung jawab). Sistem otomatis men-generate satu QR Code unik
-   untuk grup tersebut.
+   kuota, penanggung jawab). Sistem otomatis men-generate satu Barcode
+   (Code128) unik untuk grup tersebut.
 3. **Admin** menambahkan **Tamu** ke dalam grup (satu per satu, atau dari
    halaman detail grup). Jumlah tamu tidak boleh melebihi kuota grup.
-4. QR Code dicetak/dibagikan ke grup tersebut (QR **tidak** berisi nama atau
-   data pribadi tamu — hanya token acak).
-5. **Petugas** membuka halaman **Scan QR Code** di smartphone, mengarahkan
-   kamera ke QR. Sistem menampilkan seluruh nama tamu dalam grup tersebut.
+4. Barcode dicetak/dibagikan ke grup tersebut (barcode **tidak** berisi nama
+   atau data pribadi tamu — hanya token acak).
+5. **Petugas** memilih event aktif lalu membuka halaman **Scan Barcode**,
+   kemudian menembakkan barcode scanner genggam (atau mengetik kodenya secara
+   manual) ke kolom input. Sistem menampilkan seluruh nama tamu dalam grup
+   tersebut.
 6. Petugas mencentang nama tamu yang benar-benar hadir, lalu menekan tombol
    **KONFIRMASI CHECK-IN**. Tamu yang sudah check-in tidak bisa dipilih lagi
-   pada scan berikutnya, tetapi QR yang sama tetap bisa dipakai untuk
+   pada scan berikutnya, tetapi barcode yang sama tetap bisa dipakai untuk
    men-check-in anggota grup lainnya yang belum hadir.
 7. **Admin** memonitor kehadiran secara real-time melalui menu **Monitoring**
    dan **Laporan**, serta dapat mengekspor data ke CSV.
@@ -145,11 +147,11 @@ hadirin/
 ├── composer.json, database.sql, README.md
 ├── .htaccess
 ├── config/          (database, auth, csrf, bootstrap — diblokir dari akses web)
-├── includes/        (header, sidebar, footer, functions, qr_helper — diblokir dari akses web)
+├── includes/        (header, sidebar, footer, functions, barcode_helper — diblokir dari akses web)
 ├── events/          (CRUD event — level teratas)
-├── groups/          (CRUD grup undangan + QR)
+├── groups/          (CRUD grup undangan + barcode)
 ├── guests/          (CRUD tamu)
-├── scanner/         (scanner QR, validasi, check-in, riwayat)
+├── scanner/         (scanner barcode, validasi, check-in, riwayat)
 ├── monitoring/       (monitoring kehadiran real-time)
 ├── reports/         (laporan + export CSV)
 ├── users/           (manajemen akun petugas)
@@ -173,34 +175,43 @@ hadirin/
 - **Check-in ganda dicegah** dengan transaksi database + `SELECT ... FOR UPDATE`
   pada baris tamu yang dipilih, sehingga aman dari race condition saat dua
   petugas melakukan scan bersamaan.
-- QR Code hanya berisi token acak (`random_bytes(32)`), tidak pernah berisi
-  nama atau data pribadi tamu.
-- **Audit log** untuk aksi penting (login, logout, CRUD grup/tamu, rotasi QR,
-  manajemen petugas, export laporan).
+- Barcode hanya berisi token acak (`random_bytes(10)`, Code128), tidak pernah
+  berisi nama atau data pribadi tamu.
+- **Audit log** untuk aksi penting (login, logout, CRUD grup/tamu, rotasi
+  barcode, manajemen petugas, export laporan).
 - Perlindungan **CSV formula injection** pada export laporan (UTF-8 BOM + escaping).
 - Header keamanan (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`).
 - Endpoint AJAX mengembalikan HTTP status code yang sesuai (401 tidak
   terautentikasi, 403 tidak berizin/grup nonaktif, 404 token tidak ditemukan,
   409 konflik check-in ganda, 422 input tidak valid).
 
-## 7. Keterbatasan Kamera Scanner
+## 7. Input Barcode: Scanner Genggam (bukan kamera)
 
-Browser modern (Chrome, Safari, dsb.) hanya mengizinkan akses kamera
-(`getUserMedia`) pada konteks **aman**: `https://` atau `http://localhost`.
-Jika aplikasi diakses melalui alamat IP atau domain non-HTTPS selain
-localhost, fitur kamera **tidak akan berfungsi** dan browser akan menolak
-permintaan akses kamera. Pastikan HTTPS aktif sebelum menggunakan scanner di
-lapangan. Sebagai fallback, scanner menyediakan input token manual.
+Halaman **Scan Barcode** saat ini **tidak menggunakan kamera sama sekali** —
+dukungan kamera (`html5-qrcode`) sengaja dinonaktifkan untuk saat ini. Satu-
+satunya cara memasukkan kode adalah lewat kolom input teks, yang dirancang
+untuk dipakai bersama **barcode scanner USB/Bluetooth genggam**: perangkat
+semacam ini umumnya bertindak sebagai keyboard (keyboard-wedge/HID) — begitu
+barcode ditembak, scanner "mengetikkan" kodenya lalu menekan Enter secara
+otomatis. Kolom input pada halaman scanner sudah otomatis fokus dan menerima
+Enter sebagai submit, sehingga alurnya: pilih event aktif → tembak barcode →
+hasil langsung muncul, tanpa perlu klik apa pun. Kode juga bisa diketik
+manual bila diperlukan.
+
+Barcode yang digenerate adalah **Code128**, format yang didukung hampir
+semua barcode scanner genggam di pasaran.
 
 ## 8. Pengujian yang Disarankan
 
 Skenario pengujian end-to-end (lihat juga daftar lengkap pada dokumen
-spesifikasi): login admin & petugas, membuat grup + tamu, download QR, scan
-QR dari smartphone, check-in sebagian tamu, scan ulang QR yang sama untuk
-men-check-in sisa tamu, uji QR palsu/nonaktif, uji akses tanpa login/role
+spesifikasi): login admin & petugas, membuat grup + tamu, download barcode,
+pilih event lalu input barcode (lewat scanner genggam atau ketik manual),
+check-in sebagian tamu, scan ulang barcode yang sama untuk men-check-in sisa
+tamu, uji barcode palsu/nonaktif/milik event lain, uji akses tanpa login/role
 salah, uji CSRF invalid, uji check-in bersamaan (dua tab/dua device), cek
-statistik dashboard, filter laporan, export CSV, rotasi QR token, serta
-validasi kuota tidak bisa lebih kecil dari jumlah tamu terdaftar.
+statistik dashboard (termasuk filter per event di halaman Monitoring), filter
+laporan, export CSV, rotasi barcode token, serta validasi kuota tidak bisa
+lebih kecil dari jumlah tamu terdaftar.
 
 Jalankan pemeriksaan sintaks PHP dengan:
 ```bash

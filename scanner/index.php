@@ -11,12 +11,12 @@ $activeEvents = $db->query(
      ORDER BY event_date ASC, event_name ASC"
 )->fetchAll();
 
-$pageTitle = 'Scan QR Code';
+$pageTitle = 'Scan Barcode';
 require __DIR__ . '/../includes/header.php';
 require __DIR__ . '/../includes/sidebar.php';
 ?>
 <div class="container-fluid p-3 scanner-page">
-  <h4 class="page-title text-center mb-3"><i class="bi bi-qr-code-scan"></i> Hadirin Scanner</h4>
+  <h4 class="page-title text-center mb-3"><i class="bi bi-upc-scan"></i> Hadirin Scanner</h4>
 
   <?php if (!$activeEvents): ?>
     <div class="alert alert-warning text-center">
@@ -59,24 +59,14 @@ require __DIR__ . '/../includes/sidebar.php';
 
       <div class="card scanner-card mb-3">
         <div class="card-body">
-          <div id="qr-reader"></div>
-          <div class="d-flex gap-2 mt-3 flex-wrap">
-            <button id="btnStartScan" class="btn btn-success btn-lg flex-grow-1"><i class="bi bi-camera-video"></i> Mulai Scan</button>
-            <button id="btnStopScan" class="btn btn-outline-danger btn-lg flex-grow-1 d-none"><i class="bi bi-stop-circle"></i> Stop Scan</button>
-          </div>
-          <div class="mt-2">
-            <select id="cameraSelect" class="form-select d-none"></select>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-body">
-          <label class="form-label">Input Token Manual (fallback)</label>
-          <div class="input-group">
-            <input type="text" id="manualToken" class="form-control" placeholder="Masukkan token QR...">
+          <label class="form-label fw-semibold">
+            <i class="bi bi-upc-scan"></i> Pindai Barcode
+          </label>
+          <div class="input-group input-group-lg">
+            <input type="text" id="manualToken" class="form-control" placeholder="Arahkan barcode scanner ke sini atau ketik manual..." autofocus>
             <button id="btnManualCheck" class="btn btn-primary"><i class="bi bi-search"></i> Cek</button>
           </div>
+          <div class="form-text">Tembak barcode dengan scanner genggam (USB/Bluetooth), atau ketik kode secara manual lalu tekan Enter.</div>
         </div>
       </div>
     </div>
@@ -89,7 +79,6 @@ require __DIR__ . '/../includes/sidebar.php';
   <div id="scanAlert"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>window.HADIRIN_CSRF = <?= json_encode(csrf_token()) ?>;</script>
 <script src="<?= e(base_url('assets/js/scanner.js')) ?>?v=<?= @filemtime(APP_ROOT . '/assets/js/scanner.js') ?: '1' ?>"></script>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

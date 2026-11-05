@@ -30,7 +30,7 @@ $user = current_user();
       <i class="bi bi-list fs-3"></i>
     </button>
     <a class="navbar-brand topbar-brand" href="<?= e(base_url('dashboard.php')) ?>">
-      <i class="bi bi-qr-code-scan"></i> <?= e(APP_NAME) ?>
+      <i class="bi bi-upc-scan"></i> <?= e(APP_NAME) ?>
     </a>
     <div class="ms-auto d-flex align-items-center gap-3">
       <span class="text-white-50 d-none d-md-inline"><?= e(ucfirst($user['role'])) ?></span>

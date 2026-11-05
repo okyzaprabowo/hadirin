@@ -107,9 +107,9 @@ require __DIR__ . '/includes/sidebar.php';
       </div>
       <div class="col-6 col-md-4 col-lg-2">
         <div class="stat-card">
-          <div class="stat-icon bg-primary-subtle text-primary"><i class="bi bi-qr-code"></i></div>
+          <div class="stat-icon bg-primary-subtle text-primary"><i class="bi bi-upc"></i></div>
           <div class="stat-value"><?= (int) $totalActiveQr ?></div>
-          <div class="stat-label">QR Aktif</div>
+          <div class="stat-label">Barcode Aktif</div>
         </div>
       </div>
       <div class="col-6 col-md-4 col-lg-2">
@@ -124,7 +124,7 @@ require __DIR__ . '/includes/sidebar.php';
     <div class="mb-4 d-flex gap-2 flex-wrap">
       <a href="<?= e(base_url('events/create.php')) ?>" class="btn btn-primary"><i class="bi bi-calendar-plus"></i> Tambah Event</a>
       <a href="<?= e(base_url('groups/create.php')) ?>" class="btn btn-outline-primary"><i class="bi bi-plus-circle"></i> Tambah Grup</a>
-      <a href="<?= e(base_url('scanner/index.php')) ?>" class="btn btn-outline-primary"><i class="bi bi-qr-code-scan"></i> Scan QR</a>
+      <a href="<?= e(base_url('scanner/index.php')) ?>" class="btn btn-outline-primary"><i class="bi bi-upc-scan"></i> Scan Barcode</a>
     </div>
 
     <div class="row g-3">
@@ -214,14 +214,14 @@ require __DIR__ . '/includes/sidebar.php';
       </div>
       <div class="col-6 col-md-6">
         <div class="stat-card">
-          <div class="stat-icon bg-primary-subtle text-primary"><i class="bi bi-qr-code-scan"></i></div>
+          <div class="stat-icon bg-primary-subtle text-primary"><i class="bi bi-upc-scan"></i></div>
           <div class="stat-value"><?= (int) $myScansTotal ?></div>
           <div class="stat-label">Total Check-in Saya</div>
         </div>
       </div>
     </div>
 
-    <a href="<?= e(base_url('scanner/index.php')) ?>" class="btn btn-primary btn-lg mb-4"><i class="bi bi-qr-code-scan"></i> Mulai Scan QR</a>
+    <a href="<?= e(base_url('scanner/index.php')) ?>" class="btn btn-primary btn-lg mb-4"><i class="bi bi-upc-scan"></i> Mulai Scan Barcode</a>
 
     <div class="card">
       <div class="card-header">Riwayat Scan Terbaru</div>

@@ -36,7 +36,7 @@ require __DIR__ . '/../includes/sidebar.php';
     <h3 class="page-title mb-0"><i class="bi bi-people"></i> <?= e($group['group_name']) ?></h3>
     <div>
       <a href="<?= e(base_url('groups/edit.php?id=' . $id)) ?>" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Edit</a>
-      <a href="<?= e(base_url('groups/qr.php?id=' . $id)) ?>" class="btn btn-outline-dark"><i class="bi bi-qr-code"></i> Lihat QR</a>
+      <a href="<?= e(base_url('groups/barcode.php?id=' . $id)) ?>" class="btn btn-outline-dark"><i class="bi bi-upc"></i> Lihat Barcode</a>
       <a href="<?= e(base_url('groups/index.php')) ?>" class="btn btn-outline-primary"><i class="bi bi-arrow-left"></i> Kembali</a>
     </div>
   </div>
@@ -61,12 +61,12 @@ require __DIR__ . '/../includes/sidebar.php';
     </div>
     <div class="col-md-4">
       <div class="card h-100 text-center">
-        <div class="card-header">QR Code</div>
+        <div class="card-header">Barcode</div>
         <div class="card-body d-flex flex-column justify-content-center align-items-center">
-          <img src="<?= e(base_url('groups/qr.php?id=' . $id . '&action=view')) ?>" alt="QR Code" class="img-fluid mb-2" style="max-width:180px;">
+          <img src="<?= e(base_url('groups/barcode.php?id=' . $id . '&action=view')) ?>" alt="Barcode" class="img-fluid mb-2" style="max-width:260px;">
           <div class="d-flex gap-2">
-            <a href="<?= e(base_url('groups/qr.php?id=' . $id . '&action=download')) ?>" class="btn btn-sm btn-primary"><i class="bi bi-download"></i> PNG</a>
-            <a href="<?= e(base_url('groups/qr.php?id=' . $id)) ?>" class="btn btn-sm btn-outline-secondary"><i class="bi bi-printer"></i> Detail</a>
+            <a href="<?= e(base_url('groups/barcode.php?id=' . $id . '&action=download')) ?>" class="btn btn-sm btn-primary"><i class="bi bi-download"></i> PNG</a>
+            <a href="<?= e(base_url('groups/barcode.php?id=' . $id)) ?>" class="btn btn-sm btn-outline-secondary"><i class="bi bi-printer"></i> Detail</a>
           </div>
         </div>
       </div>

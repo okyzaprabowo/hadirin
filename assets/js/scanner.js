@@ -1,18 +1,12 @@
 (function () {
   'use strict';
 
-  var html5QrCode = null;
-  var isScanning = false;
   var currentToken = null;
-  var cameras = [];
 
   var elScanSection = document.getElementById('scanSection');
   var elResultSection = document.getElementById('resultSection');
   var elResultContent = document.getElementById('resultContent');
   var elAlert = document.getElementById('scanAlert');
-  var elBtnStart = document.getElementById('btnStartScan');
-  var elBtnStop = document.getElementById('btnStopScan');
-  var elCameraSelect = document.getElementById('cameraSelect');
   var elManualToken = document.getElementById('manualToken');
   var elBtnManualCheck = document.getElementById('btnManualCheck');
   var elEventSelect = document.getElementById('eventSelect');
@@ -48,6 +42,7 @@
       elScanSection.classList.remove('d-none');
       if (elNoEventNotice) elNoEventNotice.classList.add('d-none');
       if (elEventBanner) elEventBanner.textContent = currentEventName();
+      if (elManualToken) elManualToken.focus();
 
       if (elEventInfo) {
         var bits = [];
@@ -55,7 +50,7 @@
         var location = opt ? opt.getAttribute('data-location') : '';
         if (date) bits.push('Tanggal: ' + date);
         if (location) bits.push('Lokasi: ' + location);
-        elEventInfo.textContent = bits.join(' \u00B7 ');
+        elEventInfo.textContent = bits.join(' · ');
         elEventInfo.classList.toggle('d-none', bits.length === 0);
       }
     } else {
@@ -97,75 +92,7 @@
       });
   }
 
-  function loadCameras() {
-    if (!window.Html5Qrcode || !elCameraSelect) return;
-    Html5Qrcode.getCameras().then(function (devices) {
-      cameras = devices || [];
-      if (cameras.length > 1) {
-        elCameraSelect.classList.remove('d-none');
-        elCameraSelect.innerHTML = cameras.map(function (c, i) {
-          return '<option value="' + c.id + '">' + escapeHtml(c.label || ('Kamera ' + (i + 1))) + '</option>';
-        }).join('');
-        var backIndex = cameras.findIndex(function (c) { return /back|belakang|rear/i.test(c.label || ''); });
-        if (backIndex >= 0) elCameraSelect.selectedIndex = backIndex;
-      }
-    }).catch(function () {
-      // camera permission not granted yet; ignore until user starts scanning
-    });
-  }
-
-  /* ---------- Scanner ---------- */
-
-  function startScanning() {
-    if (isScanning) return;
-    if (!currentEventId()) {
-      showAlert('warning', 'Pilih event aktif terlebih dahulu sebelum memulai scan.');
-      return;
-    }
-    html5QrCode = new Html5Qrcode('qr-reader');
-
-    var cameraConfig = elCameraSelect && elCameraSelect.value ? { deviceId: { exact: elCameraSelect.value } } : { facingMode: 'environment' };
-
-    html5QrCode.start(
-      cameraConfig,
-      { fps: 10, qrbox: 240 },
-      onScanSuccess,
-      function () { /* scan failure per frame, ignore */ }
-    ).then(function () {
-      isScanning = true;
-      elBtnStart.classList.add('d-none');
-      elBtnStop.classList.remove('d-none');
-      loadCameras();
-    }).catch(function (err) {
-      showAlert('danger', 'Tidak dapat mengakses kamera: ' + err);
-    });
-  }
-
-  function stopScanning() {
-    if (!html5QrCode || !isScanning) return;
-    html5QrCode.stop().then(function () {
-      isScanning = false;
-      elBtnStart.classList.remove('d-none');
-      elBtnStop.classList.add('d-none');
-    }).catch(function () {});
-  }
-
-  function pauseScanning() {
-    if (html5QrCode && isScanning) {
-      try { html5QrCode.pause(true); } catch (e) {}
-    }
-  }
-
-  function resumeScanning() {
-    if (html5QrCode && isScanning) {
-      try { html5QrCode.resume(); } catch (e) {}
-    }
-  }
-
-  function onScanSuccess(decodedText) {
-    pauseScanning();
-    validateToken(decodedText.trim());
-  }
+  /* ---------- Validasi & check-in ---------- */
 
   function validateToken(token) {
     if (!token) return;
@@ -183,13 +110,11 @@
           currentToken = token;
           renderGroupResult(res.body.group, res.body.guests);
         } else {
-          showAlert('danger', res.body.message || 'QR Code tidak valid.');
-          setTimeout(resumeScanning, 1500);
+          showAlert('danger', res.body.message || 'Barcode tidak valid.');
         }
       })
       .catch(function () {
         showAlert('danger', 'Gagal menghubungi server. Periksa koneksi internet.');
-        setTimeout(resumeScanning, 1500);
       });
   }
 
@@ -209,7 +134,7 @@
     }).join('');
 
     elResultContent.innerHTML = '' +
-      '<div class="alert alert-success text-center fw-semibold">QR Code Valid</div>' +
+      '<div class="alert alert-success text-center fw-semibold">Barcode Valid</div>' +
       '<div class="alert alert-primary py-2 small">Event: <strong>' + escapeHtml(currentEventName()) + '</strong></div>' +
       '<div class="card mb-3">' +
         '<div class="card-body">' +
@@ -298,23 +223,36 @@
     elResultSection.classList.add('d-none');
     elScanSection.classList.remove('d-none');
     currentToken = null;
-    resumeScanning();
+    if (elManualToken) elManualToken.focus();
+  }
+
+  /* ---------- Input barcode manual / scanner genggam ---------- */
+
+  function submitManualToken() {
+    var token = elManualToken.value.trim();
+    if (!token) {
+      showAlert('warning', 'Masukkan kode barcode terlebih dahulu.');
+      return;
+    }
+    validateToken(token);
+    elManualToken.value = '';
+  }
+
+  if (elBtnManualCheck) {
+    elBtnManualCheck.addEventListener('click', submitManualToken);
+  }
+  if (elManualToken) {
+    // Barcode scanner genggam (USB/Bluetooth) umumnya bertindak sebagai
+    // keyboard: mengetik kode lalu menekan Enter secara otomatis.
+    elManualToken.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitManualToken();
+      }
+    });
   }
 
   /* ---------- Inisialisasi ---------- */
-
-  if (elBtnStart) elBtnStart.addEventListener('click', startScanning);
-  if (elBtnStop) elBtnStop.addEventListener('click', stopScanning);
-  if (elBtnManualCheck) {
-    elBtnManualCheck.addEventListener('click', function () {
-      var token = elManualToken.value.trim();
-      if (!token) {
-        showAlert('warning', 'Masukkan token QR terlebih dahulu.');
-        return;
-      }
-      validateToken(token);
-    });
-  }
 
   if (elEventSelect) {
     elEventSelect.addEventListener('change', function () {
@@ -324,6 +262,4 @@
     });
     syncEventUI();
   }
-
-  loadCameras();
 })();

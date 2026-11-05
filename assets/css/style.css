@@ -139,13 +139,12 @@ body {
 /* ---------- Tabel: teks lebih kecil agar muat di ponsel ---------- */
 .table { font-size: 0.85rem; }
 
-/* ---------- QR card ---------- */
-.qr-card { border-radius: 16px; }
-.qr-brand { font-size: 0.8rem; letter-spacing: 3px; font-weight: 700; color: var(--color-primary); }
+/* ---------- Barcode card ---------- */
+.barcode-card { border-radius: 16px; }
+.barcode-brand { font-size: 0.8rem; letter-spacing: 3px; font-weight: 700; color: var(--color-primary); }
 
 /* ---------- Scanner page ---------- */
 .scanner-page { width: 100%; max-width: 560px; margin: 0 auto; }
-.scanner-card #qr-reader { width: 100%; border-radius: 10px; overflow: hidden; }
 .scanner-page .btn-lg { font-size: 1rem; padding: 12px; min-height: 48px; }
 
 .guest-check-row {
