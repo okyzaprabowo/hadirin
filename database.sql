@@ -1,5 +1,5 @@
 -- =====================================================================
--- HADIRIN — Smart Guest Management & QR Check-in System
+-- HADIRIN — Smart Guest Management & Barcode Check-in System
 -- Database schema for MySQL 8.x / MariaDB (InnoDB, utf8mb4)
 --
 -- Import via phpMyAdmin or:
@@ -24,15 +24,21 @@ CREATE TABLE `users` (
   `username` VARCHAR(50) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
   `full_name` VARCHAR(150) NOT NULL,
-  `role` ENUM('admin','petugas') NOT NULL,
+  `role` ENUM('admin','petugas','mahasiswa') NOT NULL,
+  `group_id` BIGINT UNSIGNED NULL,
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_users_username` (`username`),
   KEY `idx_users_role` (`role`),
-  KEY `idx_users_active` (`is_active`)
+  KEY `idx_users_active` (`is_active`),
+  KEY `idx_users_group_id` (`group_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Catatan: `group_id` dipakai khusus akun role 'mahasiswa' (hasil daftar
+-- mandiri di /daftar-wisuda), menunjuk ke SATU guest_groups miliknya.
+-- Foreign key ditambahkan lewat ALTER TABLE di bawah (setelah
+-- guest_groups ada), karena users dibuat lebih dulu.
 
 -- ---------------------------------------------------------------------
 -- TABLE: events
@@ -78,6 +84,10 @@ CREATE TABLE `guest_groups` (
   CONSTRAINT `chk_guest_groups_quota` CHECK (`quota` > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+ALTER TABLE `users`
+  ADD CONSTRAINT `fk_users_group` FOREIGN KEY (`group_id`) REFERENCES `guest_groups` (`id`)
+    ON DELETE SET NULL ON UPDATE CASCADE;
+
 -- ---------------------------------------------------------------------
 -- TABLE: guests
 -- ---------------------------------------------------------------------
@@ -121,6 +131,27 @@ CREATE TABLE `checkin_logs` (
   CONSTRAINT `fk_checkin_logs_group` FOREIGN KEY (`group_id`) REFERENCES `guest_groups` (`id`)
     ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `fk_checkin_logs_user` FOREIGN KEY (`scanned_by`) REFERENCES `users` (`id`)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- TABLE: session_attendance
+-- Presensi PER GRUP untuk 3 sesi acara (masuk, snack, makan siang),
+-- dipakai oleh alur "Scan QR" mandiri mahasiswa (terpisah dari
+-- guests.checkin_at yang dipakai alur barcode admin/petugas).
+-- ---------------------------------------------------------------------
+DROP TABLE IF EXISTS `session_attendance`;
+CREATE TABLE `session_attendance` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `group_id` BIGINT UNSIGNED NOT NULL,
+  `session_type` ENUM('masuk','snack','makan_siang') NOT NULL,
+  `checked_in_at` DATETIME NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_session_attendance_group_session` (`group_id`, `session_type`),
+  KEY `idx_session_attendance_checked_in` (`checked_in_at`),
+  CONSTRAINT `fk_session_attendance_group` FOREIGN KEY (`group_id`) REFERENCES `guest_groups` (`id`)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -199,6 +230,15 @@ INSERT INTO `guests` (`group_id`, `full_name`, `phone`, `notes`) VALUES
   (3, 'Rizal Hakim', NULL, NULL),
   (3, 'Maya Puspita', NULL, NULL),
   (3, 'Tono Wijaya', NULL, 'Datang dari luar kota');
+
+INSERT INTO `session_attendance` (`group_id`, `session_type`)
+SELECT gg.`id`, s.`session_type`
+FROM `guest_groups` gg
+CROSS JOIN (
+  SELECT 'masuk' AS `session_type`
+  UNION ALL SELECT 'snack'
+  UNION ALL SELECT 'makan_siang'
+) s;
 
 -- =====================================================================
 -- REFERENCE QUERIES (used as the basis for the PHP data-access layer)

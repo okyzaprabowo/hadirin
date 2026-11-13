@@ -36,6 +36,24 @@ if ($user['role'] === 'admin') {
          ORDER BY gg.created_at DESC
          LIMIT 8"
     )->fetchAll();
+} elseif ($user['role'] === 'mahasiswa') {
+    $groupStmt = $db->prepare(
+        'SELECT gg.*, ev.event_name FROM guest_groups gg JOIN events ev ON ev.id = gg.event_id WHERE gg.id = :id'
+    );
+    $groupStmt->execute(['id' => $user['group_id']]);
+    $myGroup = $groupStmt->fetch();
+
+    $myGuestsStmt = $db->prepare('SELECT * FROM guests WHERE group_id = :id ORDER BY id ASC');
+    $myGuestsStmt->execute(['id' => $user['group_id']]);
+    $myGuests = $myGuestsStmt->fetchAll();
+
+    $mySessionsStmt = $db->prepare('SELECT * FROM session_attendance WHERE group_id = :id');
+    $mySessionsStmt->execute(['id' => $user['group_id']]);
+    $mySessionRows = $mySessionsStmt->fetchAll();
+    $mySessions = [];
+    foreach ($mySessionRows as $row) {
+        $mySessions[$row['session_type']] = $row;
+    }
 } else {
     $todayStart = date('Y-m-d 00:00:00');
     $stmt = $db->prepare(
@@ -203,7 +221,7 @@ require __DIR__ . '/includes/sidebar.php';
       });
     </script>
 
-  <?php else: ?>
+  <?php elseif ($user['role'] === 'petugas'): ?>
     <div class="row g-3 mb-4">
       <div class="col-6 col-md-6">
         <div class="stat-card">
@@ -246,6 +264,59 @@ require __DIR__ . '/includes/sidebar.php';
         </div>
       </div>
     </div>
+
+  <?php else: // mahasiswa ?>
+    <?php if (!$myGroup): ?>
+      <div class="alert alert-danger">Data grup Anda tidak ditemukan. Hubungi panitia.</div>
+    <?php else: ?>
+      <div class="card mb-3">
+        <div class="card-header">Informasi Saya</div>
+        <div class="card-body">
+          <table class="table table-borderless table-sm mb-0">
+            <tr><th width="180">Event</th><td><?= e($myGroup['event_name']) ?></td></tr>
+            <tr><th>Nama Mahasiswa</th><td><?= e($myGroup['contact_name'] ?? '-') ?></td></tr>
+            <tr><th>Nomor HP</th><td><?= e($myGroup['contact_phone'] ?? '-') ?></td></tr>
+            <tr><th>Status Undangan</th><td><?= $myGroup['status'] === 'active' ? '<span class="badge text-bg-success">Aktif</span>' : '<span class="badge text-bg-secondary">Nonaktif</span>' ?></td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header">Data Mahasiswa &amp; Orang Tua (<?= count($myGuests) ?> / <?= (int) $myGroup['quota'] ?> kuota)</div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <thead><tr><th>Nama</th></tr></thead>
+            <tbody>
+            <?php foreach ($myGuests as $g): ?>
+              <tr><td><?= e($g['full_name']) ?></td></tr>
+            <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header">Status Presensi</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <?php foreach (session_types() as $type => $label): ?>
+              <?php $sess = $mySessions[$type] ?? null; $checked = $sess && $sess['checked_in_at']; ?>
+              <div class="col-md-4">
+                <div class="stat-card text-center">
+                  <div class="stat-icon mx-auto <?= $checked ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' ?>">
+                    <i class="bi <?= $checked ? 'bi-check-circle' : 'bi-clock-history' ?>"></i>
+                  </div>
+                  <div class="fw-semibold mt-2"><?= e($label) ?></div>
+                  <div class="text-muted small"><?= $checked ? e(format_datetime($sess['checked_in_at'])) : 'Belum presensi' ?></div>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      </div>
+
+      <a href="<?= e(base_url('presensi/scan.php')) ?>" class="btn btn-primary btn-lg w-100"><i class="bi bi-qr-code-scan"></i> Scan QR Presensi</a>
+    <?php endif; ?>
   <?php endif; ?>
 </div>
 <?php require __DIR__ . '/includes/footer.php'; ?>

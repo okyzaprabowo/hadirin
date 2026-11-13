@@ -4,6 +4,12 @@
 Options -Indexes
 Options -MultiViews
 
+# Clean URL: /daftar-wisuda -> daftar-wisuda.php
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^daftar-wisuda/?$ daftar-wisuda.php [L,QSA]
+</IfModule>
+
 # Block access to dotfiles (.env, .git, .htaccess itself, etc.)
 <FilesMatch "^\.">
     Require all denied

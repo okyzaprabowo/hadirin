@@ -36,6 +36,9 @@ function nav_active(string $scriptPath, string $needle): string
       <a class="nav-link <?= nav_active($scriptPath, '/groups/barcode.php') ?>" href="<?= e(base_url('groups/index.php')) ?>">
         <i class="bi bi-upc"></i> Barcode
       </a>
+      <a class="nav-link <?= nav_active($scriptPath, '/presensi/') ?>" href="<?= e(base_url('presensi/index.php')) ?>">
+        <i class="bi bi-qr-code"></i> Layar Presensi
+      </a>
       <a class="nav-link <?= nav_active($scriptPath, '/monitoring/') ?>" href="<?= e(base_url('monitoring/index.php')) ?>">
         <i class="bi bi-activity"></i> Monitoring Kehadiran
       </a>
@@ -52,7 +55,7 @@ function nav_active(string $scriptPath, string $needle): string
       <a class="nav-link text-danger-emphasis" href="<?= e(base_url('logout.php')) ?>">
         <i class="bi bi-box-arrow-right"></i> Logout
       </a>
-    <?php else: ?>
+    <?php elseif ($user['role'] === 'petugas'): ?>
       <a class="nav-link <?= nav_active($scriptPath, '/dashboard.php') ?>" href="<?= e(base_url('dashboard.php')) ?>">
         <i class="bi bi-speedometer2"></i> Dashboard Petugas
       </a>
@@ -64,6 +67,17 @@ function nav_active(string $scriptPath, string $needle): string
       </a>
       <a class="nav-link <?= nav_active($scriptPath, '/account/') ?>" href="<?= e(base_url('account/index.php')) ?>">
         <i class="bi bi-gear"></i> Pengaturan Akun
+      </a>
+      <hr class="text-white-50">
+      <a class="nav-link text-danger-emphasis" href="<?= e(base_url('logout.php')) ?>">
+        <i class="bi bi-box-arrow-right"></i> Logout
+      </a>
+    <?php else: // mahasiswa ?>
+      <a class="nav-link <?= nav_active($scriptPath, '/dashboard.php') ?>" href="<?= e(base_url('dashboard.php')) ?>">
+        <i class="bi bi-speedometer2"></i> Dashboard
+      </a>
+      <a class="nav-link <?= nav_active($scriptPath, '/presensi/scan.php') ?>" href="<?= e(base_url('presensi/scan.php')) ?>">
+        <i class="bi bi-qr-code-scan"></i> Scan QR
       </a>
       <hr class="text-white-50">
       <a class="nav-link text-danger-emphasis" href="<?= e(base_url('logout.php')) ?>">

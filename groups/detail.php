@@ -27,6 +27,14 @@ $guests = $guestsStmt->fetchAll();
 $totalGuests = count($guests);
 $totalPresent = count(array_filter($guests, fn($g) => $g['checkin_at'] !== null));
 
+$sessionsStmt = $db->prepare('SELECT * FROM session_attendance WHERE group_id = :id');
+$sessionsStmt->execute(['id' => $id]);
+$sessionRows = $sessionsStmt->fetchAll();
+$sessions = [];
+foreach ($sessionRows as $row) {
+    $sessions[$row['session_type']] = $row;
+}
+
 $pageTitle = 'Detail Grup: ' . $group['group_name'];
 require __DIR__ . '/../includes/header.php';
 require __DIR__ . '/../includes/sidebar.php';
@@ -69,6 +77,39 @@ require __DIR__ . '/../includes/sidebar.php';
             <a href="<?= e(base_url('groups/barcode.php?id=' . $id)) ?>" class="btn btn-sm btn-outline-secondary"><i class="bi bi-printer"></i> Detail</a>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">Presensi 3 Sesi</div>
+    <div class="card-body">
+      <div class="row g-3">
+        <?php foreach (session_types() as $type => $label): ?>
+          <?php $sess = $sessions[$type] ?? null; $checked = $sess && $sess['checked_in_at']; ?>
+          <div class="col-md-4">
+            <div class="border rounded p-3 text-center h-100 d-flex flex-column justify-content-between">
+              <div>
+                <div class="fw-semibold"><?= e($label) ?></div>
+                <div class="small text-muted mb-2">
+                  <?= $checked ? e(format_datetime($sess['checked_in_at'])) : 'Belum presensi' ?>
+                </div>
+                <span class="badge <?= $checked ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $checked ? 'Hadir' : 'Belum Hadir' ?></span>
+              </div>
+              <?php if ($sess): ?>
+                <form method="post" action="<?= e(base_url('groups/mark_session.php')) ?>" class="mt-2">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="group_id" value="<?= (int) $id ?>">
+                  <input type="hidden" name="session_type" value="<?= e($type) ?>">
+                  <input type="hidden" name="action" value="<?= $checked ? 'unmark' : 'mark' ?>">
+                  <button type="submit" class="btn btn-sm w-100 <?= $checked ? 'btn-outline-secondary' : 'btn-outline-success' ?>">
+                    <?= $checked ? 'Batalkan' : 'Tandai Hadir' ?>
+                  </button>
+                </form>
+              <?php endif; ?>
+            </div>
+          </div>
+        <?php endforeach; ?>
       </div>
     </div>
   </div>

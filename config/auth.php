@@ -115,7 +115,7 @@ function login_record_attempt(PDO $db, string $username, string $ip, bool $succe
 function attempt_login(PDO $db, string $username, string $password): ?array
 {
     $stmt = $db->prepare(
-        'SELECT id, username, password_hash, full_name, role, is_active
+        'SELECT id, username, password_hash, full_name, role, group_id, is_active
          FROM users WHERE username = :username LIMIT 1'
     );
     $stmt->execute(['username' => $username]);
@@ -143,6 +143,7 @@ function login_user(array $user): void
     $_SESSION['username']      = $user['username'];
     $_SESSION['full_name']     = $user['full_name'];
     $_SESSION['role']          = $user['role'];
+    $_SESSION['group_id']      = isset($user['group_id']) && $user['group_id'] !== null ? (int) $user['group_id'] : null;
     $_SESSION['last_activity'] = time();
 }
 
@@ -166,6 +167,7 @@ function current_user(): ?array
         'username'  => $_SESSION['username'],
         'full_name' => $_SESSION['full_name'],
         'role'      => $_SESSION['role'],
+        'group_id'  => $_SESSION['group_id'] ?? null,
     ];
 }
 
@@ -177,6 +179,11 @@ function is_admin(): bool
 function is_petugas(): bool
 {
     return is_logged_in() && $_SESSION['role'] === 'petugas';
+}
+
+function is_mahasiswa(): bool
+{
+    return is_logged_in() && $_SESSION['role'] === 'mahasiswa';
 }
 
 /**

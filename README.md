@@ -72,6 +72,11 @@ agar fitur CRUD, barcode, dan scanner dapat langsung diuji setelah akun admin di
    Jika tidak memungkinkan, edit langsung nilai default di
    [config/database.php](config/database.php) di server (jangan commit nilai
    produksi ke repository publik).
+
+   Dengan cara yang sama, **set juga `SESSION_QR_SECRET`** (dipakai untuk
+   menandatangani QR presensi 3 sesi di [config/bootstrap.php](config/bootstrap.php))
+   ke nilai acak Anda sendiri di server produksi — nilai default di repo
+   hanya untuk pengembangan lokal.
 5. Pastikan Composer tersedia di hosting (banyak cPanel menyediakan **Setup PHP App**
    atau akses SSH). Jalankan:
    ```bash
@@ -139,24 +144,57 @@ Alur data berjenjang: **Event → Grup Undangan → Tamu**
 7. **Admin** memonitor kehadiran secara real-time melalui menu **Monitoring**
    dan **Laporan**, serta dapat mengekspor data ke CSV.
 
+### Alur kedua: pendaftaran mandiri mahasiswa + presensi 3 sesi
+
+Di luar alur admin di atas, tersedia jalur terpisah khusus untuk mahasiswa
+wisuda yang mendaftar sendiri, dengan presensi per **sesi acara** (bukan
+sekali check-in seperti alur barcode):
+
+1. Mahasiswa membuka **`/daftar-wisuda`** (halaman publik, tanpa login) dan
+   mengisi NIM, nama, dan nomor HP (opsional). Sistem otomatis membuat 1 grup
+   berkuota 3 (mahasiswa, "Ayah {nama}", "Ibu {nama}") dan 1 akun login
+   dengan **role `mahasiswa`** — username & password sama-sama NIM.
+2. Mahasiswa login dan hanya melihat 2 menu: **Dashboard** (data diri +
+   ortu + status 3 sesi presensi) dan **Scan QR**.
+3. **Admin/Panitia** membuka menu **Layar Presensi**, lalu membuka salah
+   satu dari 3 layar (`presensi/display.php?session=masuk|snack|makan_siang`)
+   di laptop/proyektor yang ditaruh di lokasi masing-masing. Layar ini
+   menampilkan QR yang **berganti setiap 5 detik** (HMAC time-based, lihat
+   `includes/session_qr.php`) — bukan barcode per-tamu.
+4. Mahasiswa, dari menu **Scan QR** miliknya, memotret QR di layar tersebut
+   dengan kamera HP-nya. Karena ia sudah login, sistem tahu ini grup siapa;
+   presensi dicatat **per grup per sesi** (bukan per orang) ke tabel
+   `session_attendance`, sehingga check-in masuk/snack/makan siang tercatat
+   terpisah untuk grup tersebut.
+5. Untuk 63 grup lama (hasil impor, tanpa akun mahasiswa), admin bisa
+   menandai presensi 3 sesi secara manual lewat tombol "Tandai Hadir" di
+   halaman detail grup.
+
+Setelah migrasi, `database/migration_mahasiswa_presensi.sql` sudah
+dijalankan sekali untuk menambah tabel `session_attendance`, kolom
+`users.group_id`, dan role `mahasiswa`; pada instalasi baru semua ini sudah
+termasuk di `database.sql`.
+
 ## 5. Struktur Folder
 
 ```
 hadirin/
 ├── index.php, login.php, logout.php, dashboard.php
+├── daftar-wisuda.php (pendaftaran mandiri mahasiswa, publik)
 ├── composer.json, database.sql, README.md
 ├── .htaccess
 ├── config/          (database, auth, csrf, bootstrap — diblokir dari akses web)
-├── includes/        (header, sidebar, footer, functions, barcode_helper — diblokir dari akses web)
+├── includes/        (header, sidebar, footer, functions, barcode_helper, session_qr — diblokir dari akses web)
 ├── events/          (CRUD event — level teratas)
-├── groups/          (CRUD grup undangan + barcode)
+├── groups/          (CRUD grup undangan + barcode + presensi manual per sesi)
 ├── guests/          (CRUD tamu)
-├── scanner/         (scanner barcode, validasi, check-in, riwayat)
+├── scanner/         (scanner barcode, validasi, check-in, riwayat — alur admin/petugas)
+├── presensi/        (layar QR rotasi 3 sesi + scan mandiri mahasiswa)
 ├── monitoring/       (monitoring kehadiran real-time)
 ├── reports/         (laporan + export CSV)
 ├── users/           (manajemen akun petugas)
 ├── account/         (pengaturan akun sendiri)
-├── database/        (seeder admin CLI — diblokir dari akses web)
+├── database/        (seeder admin CLI, migrasi — diblokir dari akses web)
 ├── assets/css, assets/js, assets/img
 └── vendor/          (dependency Composer — diblokir dari akses web)
 ```
