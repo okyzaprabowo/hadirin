@@ -139,9 +139,6 @@ body {
 /* ---------- Tabel: teks lebih kecil agar muat di ponsel ---------- */
 .table { font-size: 0.85rem; }
 
-/* ---------- Barcode card ---------- */
-.barcode-card { border-radius: 16px; }
-.barcode-brand { font-size: 0.8rem; letter-spacing: 3px; font-weight: 700; color: var(--color-primary); }
 
 /* ---------- Scanner page ---------- */
 .scanner-page { width: 100%; max-width: 560px; margin: 0 auto; }

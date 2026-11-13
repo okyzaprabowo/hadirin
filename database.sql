@@ -1,5 +1,5 @@
 -- =====================================================================
--- HADIRIN — Smart Guest Management & Barcode Check-in System
+-- HADIRIN — Smart Guest Management & QR Self Check-in System
 -- Database schema for MySQL 8.x / MariaDB (InnoDB, utf8mb4)
 --
 -- Import via phpMyAdmin or:
@@ -59,6 +59,28 @@ CREATE TABLE `events` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
+-- TABLE: presensi_sessions
+-- Area/sesi presensi yang bisa dikelola admin (CRUD) per event — misalnya
+-- "Absen Masuk", "Absen Snack", "Absen Makan Siang", atau nama lain sesuai
+-- kebutuhan acara. Tidak lagi hardcode 3 nama tetap.
+-- ---------------------------------------------------------------------
+DROP TABLE IF EXISTS `presensi_sessions`;
+CREATE TABLE `presensi_sessions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `event_id` BIGINT UNSIGNED NOT NULL,
+  `name` VARCHAR(100) NOT NULL,
+  `sort_order` INT NOT NULL DEFAULT 0,
+  `status` ENUM('active','inactive') NOT NULL DEFAULT 'active',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_presensi_sessions_event` (`event_id`),
+  KEY `idx_presensi_sessions_status` (`status`),
+  CONSTRAINT `fk_presensi_sessions_event` FOREIGN KEY (`event_id`) REFERENCES `events` (`id`)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
 -- TABLE: guest_groups
 -- ---------------------------------------------------------------------
 DROP TABLE IF EXISTS `guest_groups`;
@@ -69,13 +91,11 @@ CREATE TABLE `guest_groups` (
   `contact_name` VARCHAR(150) NULL,
   `contact_phone` VARCHAR(30) NULL,
   `quota` INT UNSIGNED NOT NULL,
-  `qr_token` VARCHAR(100) NOT NULL,
   `status` ENUM('active','inactive') NOT NULL DEFAULT 'active',
   `notes` TEXT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_guest_groups_qr_token` (`qr_token`),
   KEY `idx_guest_groups_event_id` (`event_id`),
   KEY `idx_guest_groups_status` (`status`),
   KEY `idx_guest_groups_name` (`group_name`),
@@ -136,22 +156,24 @@ CREATE TABLE `checkin_logs` (
 
 -- ---------------------------------------------------------------------
 -- TABLE: session_attendance
--- Presensi PER GRUP untuk 3 sesi acara (masuk, snack, makan siang),
--- dipakai oleh alur "Scan QR" mandiri mahasiswa (terpisah dari
--- guests.checkin_at yang dipakai alur barcode admin/petugas).
+-- Presensi PER GRUP untuk setiap `presensi_sessions` di event-nya, dipakai
+-- oleh alur "Scan QR" mandiri mahasiswa (terpisah dari guests.checkin_at
+-- yang dipakai alur barcode admin/petugas).
 -- ---------------------------------------------------------------------
 DROP TABLE IF EXISTS `session_attendance`;
 CREATE TABLE `session_attendance` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `group_id` BIGINT UNSIGNED NOT NULL,
-  `session_type` ENUM('masuk','snack','makan_siang') NOT NULL,
+  `presensi_session_id` BIGINT UNSIGNED NOT NULL,
   `checked_in_at` DATETIME NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_session_attendance_group_session` (`group_id`, `session_type`),
+  UNIQUE KEY `uq_session_attendance_group_presensi` (`group_id`, `presensi_session_id`),
   KEY `idx_session_attendance_checked_in` (`checked_in_at`),
   CONSTRAINT `fk_session_attendance_group` FOREIGN KEY (`group_id`) REFERENCES `guest_groups` (`id`)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_session_attendance_presensi_session` FOREIGN KEY (`presensi_session_id`) REFERENCES `presensi_sessions` (`id`)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -205,18 +227,20 @@ VALUES
   ('Pernikahan Budi & Siti', DATE_ADD(CURDATE(), INTERVAL 14 DAY), 'Gedung Graha Wisata',
    'Resepsi pernikahan dan syukuran keluarga', 'active');
 
+INSERT INTO `presensi_sessions` (`event_id`, `name`, `sort_order`, `status`) VALUES
+  (1, 'Absen Masuk', 1, 'active'),
+  (1, 'Absen Snack', 2, 'active'),
+  (1, 'Absen Makan Siang', 3, 'active');
+
 INSERT INTO `guest_groups`
-  (`event_id`, `group_name`, `contact_name`, `contact_phone`, `quota`, `qr_token`, `status`, `notes`)
+  (`event_id`, `group_name`, `contact_name`, `contact_phone`, `quota`, `status`, `notes`)
 VALUES
   (1, 'Keluarga Budi Santoso', 'Budi Santoso', '081234567890', 4,
-   '7f3a9c2e1b8d4f6a0c5e7b9d1f3a5c7e9b1d3f5a7c9e1b3d5f7a9c1e3b5d7f9a', 'active',
-   'Tamu VIP, kursi depan'),
+   'active', 'Tamu VIP, kursi depan'),
   (1, 'Rekan Kerja PT Maju Bersama', 'Dewi Lestari', '081298765432', 6,
-   '2e4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c2e4b', 'active',
-   NULL),
+   'active', NULL),
   (1, 'Komunitas Alumni 2015', 'Rizal Hakim', NULL, 5,
-   '9d1f3b5a7c9e1b3d5f7a9c1e3b5d7f9a1c3e5b7d9f1a3c5e7b9d1f3a5c7e9b1d', 'active',
-   'Reuni angkatan 2015');
+   'active', 'Reuni angkatan 2015');
 
 INSERT INTO `guests` (`group_id`, `full_name`, `phone`, `notes`) VALUES
   (1, 'Budi Santoso', '081234567890', NULL),
@@ -231,14 +255,10 @@ INSERT INTO `guests` (`group_id`, `full_name`, `phone`, `notes`) VALUES
   (3, 'Maya Puspita', NULL, NULL),
   (3, 'Tono Wijaya', NULL, 'Datang dari luar kota');
 
-INSERT INTO `session_attendance` (`group_id`, `session_type`)
-SELECT gg.`id`, s.`session_type`
+INSERT INTO `session_attendance` (`group_id`, `presensi_session_id`)
+SELECT gg.`id`, ps.`id`
 FROM `guest_groups` gg
-CROSS JOIN (
-  SELECT 'masuk' AS `session_type`
-  UNION ALL SELECT 'snack'
-  UNION ALL SELECT 'makan_siang'
-) s;
+JOIN `presensi_sessions` ps ON ps.`event_id` = gg.`event_id`;
 
 -- =====================================================================
 -- REFERENCE QUERIES (used as the basis for the PHP data-access layer)
@@ -279,5 +299,5 @@ CROSS JOIN (
 -- FROM guests g JOIN guest_groups gg ON gg.id = g.group_id
 -- ORDER BY gg.group_name, g.full_name;
 
--- Validasi QR token
--- SELECT * FROM guest_groups WHERE qr_token = ? AND status = 'active' LIMIT 1;
+-- Validasi presensi (grup + sesi tertentu)
+-- SELECT * FROM session_attendance WHERE group_id = ? AND presensi_session_id = ? LIMIT 1;

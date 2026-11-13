@@ -4,26 +4,29 @@ require_once __DIR__ . '/../config/bootstrap.php';
 require_role(['admin', 'petugas']);
 
 $db = get_db();
-$sessionType = input_str($_GET, 'session');
-$eventId = input_int($_GET, 'event_id', 0);
+$sessionId = input_int($_GET, 'session_id', 0);
 
-if (!array_key_exists($sessionType, session_types())) {
-    http_response_code(422);
-    exit('Sesi tidak valid.');
-}
+$stmt = $db->prepare(
+    "SELECT ps.*, ev.event_name, ev.status AS event_status
+     FROM presensi_sessions ps
+     JOIN events ev ON ev.id = ps.event_id
+     WHERE ps.id = :id"
+);
+$stmt->execute(['id' => $sessionId]);
+$session = $stmt->fetch();
 
-$eventStmt = $db->prepare("SELECT id, event_name FROM events WHERE id = :id AND status = 'active'");
-$eventStmt->execute(['id' => $eventId]);
-$event = $eventStmt->fetch();
-
-if (!$event) {
+if (!$session) {
     http_response_code(404);
-    exit('Event tidak ditemukan atau tidak aktif.');
+    exit('Sesi presensi tidak ditemukan.');
+}
+if ($session['status'] !== 'active' || $session['event_status'] !== 'active') {
+    http_response_code(403);
+    exit('Sesi presensi ini sedang tidak aktif.');
 }
 
-$label = session_type_label($sessionType);
-$qrUrl = base_url('presensi/qr.php?session=' . $sessionType . '&event_id=' . $eventId);
-$statsUrl = base_url('presensi/stats.php?session=' . $sessionType . '&event_id=' . $eventId);
+$label = $session['name'];
+$qrUrl = base_url('presensi/qr.php?session_id=' . $sessionId);
+$statsUrl = base_url('presensi/stats.php?session_id=' . $sessionId);
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -54,7 +57,7 @@ $statsUrl = base_url('presensi/stats.php?session=' . $sessionType . '&event_id='
   <div class="qr-box">
     <img id="qrImg" src="" alt="QR Presensi">
   </div>
-  <div class="event-name"><?= e($event['event_name']) ?></div>
+  <div class="event-name"><?= e($session['event_name']) ?></div>
   <div class="stats">Sudah presensi: <strong id="statChecked">-</strong> / <span id="statTotal">-</span></div>
 
   <script>

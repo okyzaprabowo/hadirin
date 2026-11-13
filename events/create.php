@@ -53,10 +53,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
         $eventId = (int) $db->lastInsertId();
 
+        // Seed 3 sesi presensi default (bisa diubah/dihapus lewat Kelola Sesi Presensi)
+        $defaultSessions = ['Absen Masuk' => 1, 'Absen Snack' => 2, 'Absen Makan Siang' => 3];
+        $sessionInsert = $db->prepare(
+            'INSERT INTO presensi_sessions (event_id, name, sort_order, status, created_at, updated_at)
+             VALUES (:event_id, :name, :sort_order, \'active\', :created_at, :updated_at)'
+        );
+        foreach ($defaultSessions as $name => $sortOrder) {
+            $sessionInsert->execute([
+                'event_id'   => $eventId,
+                'name'       => $name,
+                'sort_order' => $sortOrder,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
         audit_log($db, (int) current_user()['id'], 'create_event', 'event', $eventId,
             'Membuat event "' . $form['event_name'] . '"');
 
-        flash_set('success', 'Event berhasil dibuat. Selanjutnya tambahkan grup undangan pada event ini.');
+        flash_set('success', 'Event berhasil dibuat beserta 3 sesi presensi default. Selanjutnya tambahkan grup undangan pada event ini.');
         redirect(base_url('events/detail.php?id=' . $eventId));
     }
 }

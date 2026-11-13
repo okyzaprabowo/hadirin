@@ -4,22 +4,27 @@ require_once __DIR__ . '/../config/bootstrap.php';
 require_role(['admin', 'petugas']);
 
 $db = get_db();
-$sessionType = input_str($_GET, 'session');
-$eventId = input_int($_GET, 'event_id', 0);
+$sessionId = input_int($_GET, 'session_id', 0);
 
-if (!array_key_exists($sessionType, session_types())) {
-    http_response_code(422);
-    exit('Sesi tidak valid.');
-}
+$stmt = $db->prepare(
+    "SELECT ps.id, ps.event_id, ps.status, ev.status AS event_status
+     FROM presensi_sessions ps
+     JOIN events ev ON ev.id = ps.event_id
+     WHERE ps.id = :id"
+);
+$stmt->execute(['id' => $sessionId]);
+$session = $stmt->fetch();
 
-$eventCheck = $db->prepare("SELECT COUNT(*) FROM events WHERE id = :id AND status = 'active'");
-$eventCheck->execute(['id' => $eventId]);
-if ((int) $eventCheck->fetchColumn() === 0) {
+if (!$session) {
     http_response_code(404);
-    exit('Event tidak ditemukan atau tidak aktif.');
+    exit('Sesi presensi tidak ditemukan.');
+}
+if ($session['status'] !== 'active' || $session['event_status'] !== 'active') {
+    http_response_code(403);
+    exit('Sesi presensi ini sedang tidak aktif.');
 }
 
-$content = session_qr_build_content($sessionType, $eventId);
+$content = session_qr_build_content((int) $session['id'], (int) $session['event_id']);
 $png = generate_session_qr_png($content, 420);
 
 header('Content-Type: image/png');

@@ -51,12 +51,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$errors) {
         try {
-            $qrToken = generate_barcode_token();
+            $db->beginTransaction();
             $now = date('Y-m-d H:i:s');
 
             $stmt = $db->prepare(
-                'INSERT INTO guest_groups (event_id, group_name, contact_name, contact_phone, quota, qr_token, status, notes, created_at, updated_at)
-                 VALUES (:event_id, :group_name, :contact_name, :contact_phone, :quota, :qr_token, :status, :notes, :created_at, :updated_at)'
+                'INSERT INTO guest_groups (event_id, group_name, contact_name, contact_phone, quota, status, notes, created_at, updated_at)
+                 VALUES (:event_id, :group_name, :contact_name, :contact_phone, :quota, :status, :notes, :created_at, :updated_at)'
             );
             $stmt->execute([
                 'event_id'      => $form['event_id'],
@@ -64,7 +64,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'contact_name'  => $form['contact_name'] !== '' ? $form['contact_name'] : null,
                 'contact_phone' => $form['contact_phone'] !== '' ? $form['contact_phone'] : null,
                 'quota'         => $form['quota'],
-                'qr_token'      => $qrToken,
                 'status'        => 'active',
                 'notes'         => $form['notes'] !== '' ? $form['notes'] : null,
                 'created_at'    => $now,
@@ -72,12 +71,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             $groupId = (int) $db->lastInsertId();
 
+            $activeSessions = $db->prepare("SELECT id FROM presensi_sessions WHERE event_id = :event_id AND status = 'active'");
+            $activeSessions->execute(['event_id' => $form['event_id']]);
+            $sessionInsert = $db->prepare(
+                'INSERT INTO session_attendance (group_id, presensi_session_id) VALUES (:group_id, :presensi_session_id)'
+            );
+            foreach ($activeSessions->fetchAll(PDO::FETCH_COLUMN) as $presensiSessionId) {
+                $sessionInsert->execute(['group_id' => $groupId, 'presensi_session_id' => $presensiSessionId]);
+            }
+
+            $db->commit();
+
             audit_log($db, (int) current_user()['id'], 'create_group', 'guest_group', $groupId,
                 'Membuat grup "' . $form['group_name'] . '" pada event #' . $form['event_id']);
 
-            flash_set('success', 'Grup undangan berhasil dibuat dan Barcode telah digenerate. Selanjutnya tambahkan tamu pada grup ini.');
+            flash_set('success', 'Grup undangan berhasil dibuat. Selanjutnya tambahkan tamu pada grup ini.');
             redirect(base_url('groups/detail.php?id=' . $groupId));
         } catch (Throwable $e) {
+            $db->rollBack();
             error_log('[Hadirin] Failed to create group: ' . $e->getMessage());
             $errors[] = 'Terjadi kesalahan saat menyimpan data. Silakan coba lagi.';
         }
@@ -142,7 +153,7 @@ require __DIR__ . '/../includes/sidebar.php';
       </div>
     </div>
 
-    <button type="submit" class="btn btn-primary btn-lg" <?= !$allEvents ? 'disabled' : '' ?>><i class="bi bi-upc"></i> Simpan dan Generate Barcode</button>
+    <button type="submit" class="btn btn-primary btn-lg" <?= !$allEvents ? 'disabled' : '' ?>><i class="bi bi-save"></i> Simpan Grup</button>
     <a href="<?= e(base_url('groups/index.php')) ?>" class="btn btn-outline-secondary btn-lg">Batal</a>
   </form>
 </div>

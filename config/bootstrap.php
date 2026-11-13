@@ -14,7 +14,7 @@ ini_set('log_errors', '1');
 
 define('APP_ROOT', dirname(__DIR__));
 define('APP_NAME', 'Hadirin');
-define('APP_TAGLINE', 'Smart Guest Management & Barcode Check-in System');
+define('APP_TAGLINE', 'Smart Guest Management & QR Self Check-in System');
 
 if (file_exists(APP_ROOT . '/vendor/autoload.php')) {
     require_once APP_ROOT . '/vendor/autoload.php';
@@ -24,12 +24,11 @@ require_once APP_ROOT . '/config/database.php';
 require_once APP_ROOT . '/config/csrf.php';
 require_once APP_ROOT . '/config/auth.php';
 require_once APP_ROOT . '/includes/functions.php';
-require_once APP_ROOT . '/includes/barcode_helper.php';
 require_once APP_ROOT . '/includes/session_qr.php';
 
-// Secret used to sign the rotating session-attendance QR codes (masuk/
-// snack/makan siang). Override via the SESSION_QR_SECRET env var in
-// production; the fallback below is fine for local development only.
+// Secret used to sign the rotating presensi-session QR codes. Override
+// via the SESSION_QR_SECRET env var in production; the fallback below is
+// fine for local development only.
 define('SESSION_QR_SECRET', hadirin_env('SESSION_QR_SECRET', 'hadirin-dev-secret-change-in-production-6f3a9c2e'));
 
 hadirin_session_start();

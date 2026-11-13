@@ -63,15 +63,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $now = date('Y-m-d H:i:s');
 
             $groupStmt = $db->prepare(
-                'INSERT INTO guest_groups (event_id, group_name, contact_name, contact_phone, quota, qr_token, status, notes, created_at, updated_at)
-                 VALUES (:event_id, :group_name, :contact_name, :contact_phone, 3, :qr_token, \'active\', :notes, :created_at, :updated_at)'
+                'INSERT INTO guest_groups (event_id, group_name, contact_name, contact_phone, quota, status, notes, created_at, updated_at)
+                 VALUES (:event_id, :group_name, :contact_name, :contact_phone, 3, \'active\', :notes, :created_at, :updated_at)'
             );
             $groupStmt->execute([
                 'event_id'      => $form['event_id'],
                 'group_name'    => $form['nim'] . ' - ' . $form['full_name'],
                 'contact_name'  => $form['full_name'],
                 'contact_phone' => $form['phone'] !== '' ? $form['phone'] : null,
-                'qr_token'      => generate_barcode_token(),
                 'notes'         => 'Pendaftaran mandiri via /daftar-wisuda',
                 'created_at'    => $now,
                 'updated_at'    => $now,
@@ -90,11 +89,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
             }
 
+            $activeSessions = $db->prepare("SELECT id FROM presensi_sessions WHERE event_id = :event_id AND status = 'active'");
+            $activeSessions->execute(['event_id' => $form['event_id']]);
             $sessionStmt = $db->prepare(
-                'INSERT INTO session_attendance (group_id, session_type) VALUES (:group_id, :session_type)'
+                'INSERT INTO session_attendance (group_id, presensi_session_id) VALUES (:group_id, :presensi_session_id)'
             );
-            foreach (array_keys(session_types()) as $sessionType) {
-                $sessionStmt->execute(['group_id' => $groupId, 'session_type' => $sessionType]);
+            foreach ($activeSessions->fetchAll(PDO::FETCH_COLUMN) as $presensiSessionId) {
+                $sessionStmt->execute(['group_id' => $groupId, 'presensi_session_id' => $presensiSessionId]);
             }
 
             $userStmt = $db->prepare(

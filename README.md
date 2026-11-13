@@ -1,17 +1,18 @@
 # Hadirin
 
-**Smart Guest Management & Barcode Check-in System**
+**Smart Guest Management & QR Self Check-in System**
 
 Hadirin mengelola undangan dan kehadiran tamu untuk acara, seminar, pertemuan,
-konferensi, dan kegiatan organisasi, menggunakan konsep:
+konferensi, dan kegiatan organisasi (saat ini dipakai untuk wisuda), dengan
+konsep pendaftaran mandiri + presensi multi-sesi:
 
-> **1 Event → Banyak Grup Undangan → Banyak Tamu**, dengan **1 Barcode = 1 Grup Undangan**
+> **1 Event → Banyak Grup → Banyak Tamu**, dengan presensi per **sesi/area
+> acara** (Absen Masuk, Snack, Makan Siang, atau sesi lain sesuai kebutuhan)
 
 Dibangun dengan PHP Native 8.2+, MySQL/MariaDB (PDO + prepared statements),
-Bootstrap 5, dan `picqer/php-barcode-generator` (barcode Code128 — bukan QR).
-Input barcode di sisi petugas memakai barcode scanner genggam (USB/Bluetooth)
-atau input manual — lihat bagian 7. Tidak menggunakan framework backend atau
-frontend apa pun, dan tidak membutuhkan Node.js untuk berjalan.
+Bootstrap 5, dan `endroid/qr-code` untuk QR presensi yang **berganti tiap 5
+detik** (HMAC time-based). Tidak menggunakan framework backend atau frontend
+apa pun, dan tidak membutuhkan Node.js untuk berjalan.
 
 ## 1. Kebutuhan Sistem
 
@@ -19,8 +20,8 @@ frontend apa pun, dan tidak membutuhkan Node.js untuk berjalan.
 - MySQL 8.x atau MariaDB 10.4+.
 - Composer.
 - Apache dengan `mod_rewrite` dan `mod_headers` (umumnya tersedia di XAMPP dan shared hosting cPanel).
-- Barcode scanner USB/Bluetooth genggam (mode keyboard-wedge/HID) untuk digunakan
-  di lapangan — lihat bagian 7.
+- Kamera di HP peserta (untuk scan QR presensi) dan di laptop/HP panitia tidak
+  diperlukan — panitia hanya perlu membuka layar QR di browser mana pun.
 
 ## 2. Instalasi di Localhost (XAMPP / Laragon)
 
@@ -33,14 +34,15 @@ frontend apa pun, dan tidak membutuhkan Node.js untuk berjalan.
    ```
    atau lewat phpMyAdmin: menu **Import** → pilih `database.sql`.
 
-   > **Sudah punya database lama?** Jika `hadirin_db` sudah berisi data dari
-   > versi sebelumnya (belum ada tabel `events`), jangan import ulang.
-   > Cukup jalankan migrasi sekali:
+   > **Upgrade dari versi lama?** Jalankan migrasi yang relevan secara
+   > berurutan (lihat isi masing-masing file untuk detail):
    > ```bash
    > mysql -u root -p hadirin_db < database/migration_events.sql
+   > mysql -u root -p hadirin_db < database/migration_mahasiswa_presensi.sql
+   > mysql -u root -p hadirin_db < database/migration_presensi_sessions_crud.sql
+   > mysql -u root -p hadirin_db < database/migration_remove_barcode.sql
    > ```
-   > Migrasi akan membuat tabel `events`, menambah kolom `guest_groups.event_id`,
-   > dan menampung semua grup lama ke dalam satu event default.
+   > Semuanya idempotent (aman dijalankan ulang).
 4. Sesuaikan kredensial koneksi database di [config/database.php](config/database.php)
    (default: host `localhost`, user `root`, password kosong) — atau setel
    environment variable `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`, `DB_PORT`.
@@ -56,7 +58,14 @@ frontend apa pun, dan tidak membutuhkan Node.js untuk berjalan.
 7. Akses aplikasi di `http://localhost/hadirin`.
 
 Data contoh (3 grup undangan beserta tamunya) sudah disertakan di `database.sql`
-agar fitur CRUD, barcode, dan scanner dapat langsung diuji setelah akun admin dibuat.
+agar fitur CRUD dan presensi dapat langsung diuji setelah akun admin dibuat.
+Untuk memulai acara sungguhan dari nol, kosongkan data contoh dengan:
+```bash
+mysql -u root -p hadirin_db < database/reset_wisudawan_data.sql
+```
+Lihat peringatan di dalam file tersebut sebelum menjalankannya — operasinya
+permanen (hapus semua grup/tamu/presensi/akun mahasiswa, tapi tetap
+mempertahankan akun admin/petugas, event, dan konfigurasi sesi presensi).
 
 ## 3. Instalasi di Shared Hosting / cPanel
 
@@ -74,7 +83,7 @@ agar fitur CRUD, barcode, dan scanner dapat langsung diuji setelah akun admin di
    produksi ke repository publik).
 
    Dengan cara yang sama, **set juga `SESSION_QR_SECRET`** (dipakai untuk
-   menandatangani QR presensi 3 sesi di [config/bootstrap.php](config/bootstrap.php))
+   menandatangani QR presensi di [config/bootstrap.php](config/bootstrap.php))
    ke nilai acak Anda sendiri di server produksi — nilai default di repo
    hanya untuk pengembangan lokal.
 5. Pastikan Composer tersedia di hosting (banyak cPanel menyediakan **Setup PHP App**
@@ -92,7 +101,9 @@ agar fitur CRUD, barcode, dan scanner dapat langsung diuji setelah akun admin di
    produksi (dengan kredensial yang sama) lalu putuskan koneksi, atau minta
    penyedia hosting mengaktifkan akses SSH sementara.
 7. Aktifkan **HTTPS** (AutoSSL / Let's Encrypt tersedia gratis di hampir semua
-   cPanel) agar session cookie dan kredensial login terenkripsi saat dikirim.
+   cPanel) agar session cookie dan kredensial login terenkripsi saat dikirim —
+   ini juga disyaratkan browser agar kamera HP peserta bisa dipakai untuk scan
+   QR presensi (kecuali di `localhost`).
 8. Login menggunakan akun admin yang sudah dibuat di langkah 6.
 
 ### Keamanan file sensitif di shared hosting
@@ -114,87 +125,73 @@ serta `.htaccess` di root yang memblokir akses langsung ke `composer.json`,
 **Jika hosting Anda mengizinkan document root diarahkan ke sub-folder** (misalnya
 `public/`), ini lebih aman lagi: pindahkan seluruh isi project ke luar document
 root kecuali file-file PHP yang memang harus diakses langsung lewat URL
-(`index.php`, `login.php`, `logout.php`, `dashboard.php`, dan folder
-`groups/ guests/ scanner/ monitoring/ reports/ users/ account/`, plus `assets/`),
-lalu sesuaikan path `require` di masing-masing file. Dokumentasi ini sengaja
-tidak mengasumsikan struktur tersebut secara default karena kebanyakan shared
-hosting murah tidak mengizinkan document root dipindah.
+(`index.php`, `login.php`, `logout.php`, `dashboard.php`, `daftar-wisuda.php`,
+dan folder `groups/ guests/ events/ presensi/ monitoring/ reports/ users/
+account/`, plus `assets/`), lalu sesuaikan path `require` di masing-masing
+file. Dokumentasi ini sengaja tidak mengasumsikan struktur tersebut secara
+default karena kebanyakan shared hosting murah tidak mengizinkan document
+root dipindah.
 
 ## 4. Konsep & Alur Penggunaan
 
-Alur data berjenjang: **Event → Grup Undangan → Tamu**
-(1 Event punya banyak Grup, 1 Grup punya banyak Tamu, 1 Barcode per Grup).
+Alur data berjenjang: **Event → Grup Undangan → Tamu**, dengan presensi per
+**sesi** yang dikelola bebas oleh admin (bukan 3 nama tetap).
 
-1. **Admin** membuat **Event** terlebih dahulu (nama event, tanggal, lokasi).
-2. **Admin** membuat **Grup Undangan** di dalam event tersebut (nama grup,
-   kuota, penanggung jawab). Sistem otomatis men-generate satu Barcode
-   (Code128) unik untuk grup tersebut.
-3. **Admin** menambahkan **Tamu** ke dalam grup (satu per satu, atau dari
-   halaman detail grup). Jumlah tamu tidak boleh melebihi kuota grup.
-4. Barcode dicetak/dibagikan ke grup tersebut (barcode **tidak** berisi nama
-   atau data pribadi tamu — hanya token acak).
-5. **Petugas** memilih event aktif lalu membuka halaman **Scan Barcode**,
-   kemudian menembakkan barcode scanner genggam (atau mengetik kodenya secara
-   manual) ke kolom input. Sistem menampilkan seluruh nama tamu dalam grup
-   tersebut.
-6. Petugas mencentang nama tamu yang benar-benar hadir, lalu menekan tombol
-   **KONFIRMASI CHECK-IN**. Tamu yang sudah check-in tidak bisa dipilih lagi
-   pada scan berikutnya, tetapi barcode yang sama tetap bisa dipakai untuk
-   men-check-in anggota grup lainnya yang belum hadir.
-7. **Admin** memonitor kehadiran secara real-time melalui menu **Monitoring**
-   dan **Laporan**, serta dapat mengekspor data ke CSV.
+### Setup oleh admin (sekali per event)
 
-### Alur kedua: pendaftaran mandiri mahasiswa + presensi 3 sesi
+1. **Admin** membuat **Event** (nama, tanggal, lokasi). Begitu event dibuat,
+   3 sesi presensi default langsung dibuatkan otomatis: *Absen Masuk*,
+   *Absen Snack*, *Absen Makan Siang*.
+2. **Admin** mengelola sesi presensi lewat menu **Layar Presensi → Kelola
+   Sesi Presensi** (`presensi/sessions/index.php`): CRUD penuh per event —
+   nama sesi bebas (mis. "Pengambilan Toga", "Sesi Foto"), urutan tampil,
+   status aktif/nonaktif. Menambah sesi baru otomatis memberi semua grup
+   yang sudah ada di event itu baris presensi untuk sesi tersebut.
 
-Di luar alur admin di atas, tersedia jalur terpisah khusus untuk mahasiswa
-wisuda yang mendaftar sendiri, dengan presensi per **sesi acara** (bukan
-sekali check-in seperti alur barcode):
+### Pendaftaran & presensi oleh peserta (mandiri, tanpa dientri admin)
 
-1. Mahasiswa membuka **`/daftar-wisuda`** (halaman publik, tanpa login) dan
-   mengisi NIM, nama, dan nomor HP (opsional). Sistem otomatis membuat 1 grup
-   berkuota 3 (mahasiswa, "Ayah {nama}", "Ibu {nama}") dan 1 akun login
-   dengan **role `mahasiswa`** — username & password sama-sama NIM.
-2. Mahasiswa login dan hanya melihat 2 menu: **Dashboard** (data diri +
-   ortu + status 3 sesi presensi) dan **Scan QR**.
-3. **Admin/Panitia** membuka menu **Layar Presensi**, lalu membuka salah
-   satu dari 3 layar (`presensi/display.php?session=masuk|snack|makan_siang`)
-   di laptop/proyektor yang ditaruh di lokasi masing-masing. Layar ini
-   menampilkan QR yang **berganti setiap 5 detik** (HMAC time-based, lihat
-   `includes/session_qr.php`) — bukan barcode per-tamu.
-4. Mahasiswa, dari menu **Scan QR** miliknya, memotret QR di layar tersebut
-   dengan kamera HP-nya. Karena ia sudah login, sistem tahu ini grup siapa;
-   presensi dicatat **per grup per sesi** (bukan per orang) ke tabel
-   `session_attendance`, sehingga check-in masuk/snack/makan siang tercatat
-   terpisah untuk grup tersebut.
-5. Untuk 63 grup lama (hasil impor, tanpa akun mahasiswa), admin bisa
-   menandai presensi 3 sesi secara manual lewat tombol "Tandai Hadir" di
-   halaman detail grup.
-
-Setelah migrasi, `database/migration_mahasiswa_presensi.sql` sudah
-dijalankan sekali untuk menambah tabel `session_attendance`, kolom
-`users.group_id`, dan role `mahasiswa`; pada instalasi baru semua ini sudah
-termasuk di `database.sql`.
+3. Peserta membuka **`/daftar-wisuda`** (halaman publik, tanpa login) dan
+   mengisi NIM, nama, dan nomor HP (opsional). Sistem otomatis membuat:
+   - 1 grup berkuota 3 (peserta, "Ayah {nama}", "Ibu {nama}"),
+   - 1 akun login dengan **role `mahasiswa`** — username & password
+     sama-sama NIM,
+   - baris presensi kosong untuk setiap sesi **aktif** di event tersebut.
+4. Peserta login dan hanya melihat 2 menu: **Dashboard** (data diri + ortu +
+   status tiap sesi presensi) dan **Scan QR**.
+5. **Admin/Panitia** membuka salah satu layar sesi dari menu **Layar
+   Presensi** (`presensi/display.php?session_id=...`) di laptop/proyektor
+   yang ditaruh di lokasi masing-masing sesi (pintu masuk, meja snack, dst).
+   Layar ini menampilkan QR yang **berganti setiap 5 detik** (HMAC
+   time-based, lihat `includes/session_qr.php`) — bukan kode statis per tamu.
+6. Peserta, dari menu **Scan QR** di akunnya sendiri, memotret QR di layar
+   tersebut dengan kamera HP-nya. Karena ia sudah login, sistem tahu ini
+   grup siapa; presensi dicatat **per grup per sesi** (mewakili peserta +
+   kedua orang tuanya sekaligus) ke tabel `session_attendance`.
+7. Untuk grup yang didaftarkan manual oleh admin (tanpa akun mahasiswa),
+   admin bisa menandai presensi tiap sesi secara manual lewat tombol
+   "Tandai Hadir" di halaman detail grup.
+8. **Admin** memonitor kehadiran secara real-time melalui dashboard, menu
+   **Monitoring**, dan **Laporan** (export CSV).
 
 ## 5. Struktur Folder
 
 ```
 hadirin/
 ├── index.php, login.php, logout.php, dashboard.php
-├── daftar-wisuda.php (pendaftaran mandiri mahasiswa, publik)
+├── daftar-wisuda.php (pendaftaran mandiri peserta, halaman publik)
 ├── composer.json, database.sql, README.md
 ├── .htaccess
 ├── config/          (database, auth, csrf, bootstrap — diblokir dari akses web)
-├── includes/        (header, sidebar, footer, functions, barcode_helper, session_qr — diblokir dari akses web)
+├── includes/        (header, sidebar, footer, functions, session_qr — diblokir dari akses web)
 ├── events/          (CRUD event — level teratas)
-├── groups/          (CRUD grup undangan + barcode + presensi manual per sesi)
+├── groups/          (CRUD grup undangan + presensi manual per sesi)
 ├── guests/          (CRUD tamu)
-├── scanner/         (scanner barcode, validasi, check-in, riwayat — alur admin/petugas)
-├── presensi/        (layar QR rotasi 3 sesi + scan mandiri mahasiswa)
-├── monitoring/       (monitoring kehadiran real-time)
+├── presensi/        (CRUD sesi presensi, layar QR rotasi, scan mandiri peserta)
+├── monitoring/      (monitoring presensi real-time)
 ├── reports/         (laporan + export CSV)
 ├── users/           (manajemen akun petugas)
 ├── account/         (pengaturan akun sendiri)
-├── database/        (seeder admin CLI, migrasi — diblokir dari akses web)
+├── database/        (seeder admin CLI, migrasi, reset data — diblokir dari akses web)
 ├── assets/css, assets/js, assets/img
 └── vendor/          (dependency Composer — diblokir dari akses web)
 ```
@@ -209,47 +206,31 @@ hadirin/
   mencegah session fixation; timeout otomatis 30 menit tidak aktif.
 - **Rate limiting** percobaan login (maksimal 5 kali gagal per 15 menit,
   berdasarkan kombinasi username dan IP).
-- **Role-based access control** (admin vs petugas) di setiap endpoint.
-- **Check-in ganda dicegah** dengan transaksi database + `SELECT ... FOR UPDATE`
-  pada baris tamu yang dipilih, sehingga aman dari race condition saat dua
-  petugas melakukan scan bersamaan.
-- Barcode hanya berisi token acak (`random_bytes(10)`, Code128), tidak pernah
-  berisi nama atau data pribadi tamu.
-- **Audit log** untuk aksi penting (login, logout, CRUD grup/tamu, rotasi
-  barcode, manajemen petugas, export laporan).
+- **Role-based access control** (admin / petugas / mahasiswa) di setiap endpoint.
+- **Presensi ganda dicegah** dengan transaksi database + `SELECT ... FOR UPDATE`
+  pada baris presensi yang dipilih, sehingga aman dari race condition.
+- QR presensi **berganti tiap 5 detik** (HMAC time-based) dan tidak pernah
+  berisi nama atau data pribadi tamu — hanya ID sesi + token waktu.
+- **Audit log** untuk aksi penting (login, logout, CRUD grup/tamu/event/sesi
+  presensi, pendaftaran mandiri, manajemen petugas, export laporan).
 - Perlindungan **CSV formula injection** pada export laporan (UTF-8 BOM + escaping).
 - Header keamanan (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`).
 - Endpoint AJAX mengembalikan HTTP status code yang sesuai (401 tidak
-  terautentikasi, 403 tidak berizin/grup nonaktif, 404 token tidak ditemukan,
-  409 konflik check-in ganda, 422 input tidak valid).
+  terautentikasi, 403 tidak berizin/sesi nonaktif, 404 data tidak ditemukan,
+  409 konflik presensi ganda, 422 input tidak valid).
 
-## 7. Input Barcode: Scanner Genggam (bukan kamera)
+## 7. Pengujian yang Disarankan
 
-Halaman **Scan Barcode** saat ini **tidak menggunakan kamera sama sekali** —
-dukungan kamera (`html5-qrcode`) sengaja dinonaktifkan untuk saat ini. Satu-
-satunya cara memasukkan kode adalah lewat kolom input teks, yang dirancang
-untuk dipakai bersama **barcode scanner USB/Bluetooth genggam**: perangkat
-semacam ini umumnya bertindak sebagai keyboard (keyboard-wedge/HID) — begitu
-barcode ditembak, scanner "mengetikkan" kodenya lalu menekan Enter secara
-otomatis. Kolom input pada halaman scanner sudah otomatis fokus dan menerima
-Enter sebagai submit, sehingga alurnya: pilih event aktif → tembak barcode →
-hasil langsung muncul, tanpa perlu klik apa pun. Kode juga bisa diketik
-manual bila diperlukan.
-
-Barcode yang digenerate adalah **Code128**, format yang didukung hampir
-semua barcode scanner genggam di pasaran.
-
-## 8. Pengujian yang Disarankan
-
-Skenario pengujian end-to-end (lihat juga daftar lengkap pada dokumen
-spesifikasi): login admin & petugas, membuat grup + tamu, download barcode,
-pilih event lalu input barcode (lewat scanner genggam atau ketik manual),
-check-in sebagian tamu, scan ulang barcode yang sama untuk men-check-in sisa
-tamu, uji barcode palsu/nonaktif/milik event lain, uji akses tanpa login/role
-salah, uji CSRF invalid, uji check-in bersamaan (dua tab/dua device), cek
-statistik dashboard (termasuk filter per event di halaman Monitoring), filter
-laporan, export CSV, rotasi barcode token, serta validasi kuota tidak bisa
-lebih kecil dari jumlah tamu terdaftar.
+Skenario pengujian end-to-end: login admin, buat event (cek 3 sesi default
+otomatis terbuat), kelola sesi presensi (tambah/edit/nonaktifkan/hapus),
+daftar sebagai peserta lewat `/daftar-wisuda`, login sebagai peserta, buka
+layar QR di satu sesi sebagai admin/petugas lalu scan dari akun peserta
+(cek presensi tercatat, cek tidak bisa presensi dua kali di sesi yang sama),
+uji QR kedaluwarsa (lebih dari ~10 detik) dan QR acak/salah event, uji akses
+tanpa login/role salah, uji CSRF invalid, uji presensi bersamaan (dua
+tab/dua device), cek statistik dashboard & filter per event di Monitoring,
+filter Laporan, export CSV, serta validasi kuota tidak bisa lebih kecil dari
+jumlah tamu terdaftar.
 
 Jalankan pemeriksaan sintaks PHP dengan:
 ```bash

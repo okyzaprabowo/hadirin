@@ -33,9 +33,6 @@ function nav_active(string $scriptPath, string $needle): string
       <a class="nav-link <?= nav_active($scriptPath, '/guests/') ?>" href="<?= e(base_url('guests/index.php')) ?>">
         <i class="bi bi-person-lines-fill"></i> Data Tamu
       </a>
-      <a class="nav-link <?= nav_active($scriptPath, '/groups/barcode.php') ?>" href="<?= e(base_url('groups/index.php')) ?>">
-        <i class="bi bi-upc"></i> Barcode
-      </a>
       <a class="nav-link <?= nav_active($scriptPath, '/presensi/') ?>" href="<?= e(base_url('presensi/index.php')) ?>">
         <i class="bi bi-qr-code"></i> Layar Presensi
       </a>
@@ -59,11 +56,8 @@ function nav_active(string $scriptPath, string $needle): string
       <a class="nav-link <?= nav_active($scriptPath, '/dashboard.php') ?>" href="<?= e(base_url('dashboard.php')) ?>">
         <i class="bi bi-speedometer2"></i> Dashboard Petugas
       </a>
-      <a class="nav-link <?= nav_active($scriptPath, '/scanner/index.php') ?>" href="<?= e(base_url('scanner/index.php')) ?>">
-        <i class="bi bi-upc-scan"></i> Scan Barcode
-      </a>
-      <a class="nav-link <?= nav_active($scriptPath, '/scanner/history.php') ?>" href="<?= e(base_url('scanner/history.php')) ?>">
-        <i class="bi bi-clock-history"></i> Riwayat Scan
+      <a class="nav-link <?= nav_active($scriptPath, '/presensi/') ?>" href="<?= e(base_url('presensi/index.php')) ?>">
+        <i class="bi bi-qr-code"></i> Layar Presensi
       </a>
       <a class="nav-link <?= nav_active($scriptPath, '/account/') ?>" href="<?= e(base_url('account/index.php')) ?>">
         <i class="bi bi-gear"></i> Pengaturan Akun

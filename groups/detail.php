@@ -27,13 +27,15 @@ $guests = $guestsStmt->fetchAll();
 $totalGuests = count($guests);
 $totalPresent = count(array_filter($guests, fn($g) => $g['checkin_at'] !== null));
 
-$sessionsStmt = $db->prepare('SELECT * FROM session_attendance WHERE group_id = :id');
-$sessionsStmt->execute(['id' => $id]);
-$sessionRows = $sessionsStmt->fetchAll();
-$sessions = [];
-foreach ($sessionRows as $row) {
-    $sessions[$row['session_type']] = $row;
-}
+$sessionsStmt = $db->prepare(
+    "SELECT ps.id, ps.name, ps.sort_order, sa.id AS attendance_id, sa.checked_in_at
+     FROM presensi_sessions ps
+     LEFT JOIN session_attendance sa ON sa.presensi_session_id = ps.id AND sa.group_id = :group_id
+     WHERE ps.event_id = :event_id
+     ORDER BY ps.sort_order ASC, ps.id ASC"
+);
+$sessionsStmt->execute(['group_id' => $id, 'event_id' => $group['event_id']]);
+$sessions = $sessionsStmt->fetchAll();
 
 $pageTitle = 'Detail Grup: ' . $group['group_name'];
 require __DIR__ . '/../includes/header.php';
@@ -44,72 +46,59 @@ require __DIR__ . '/../includes/sidebar.php';
     <h3 class="page-title mb-0"><i class="bi bi-people"></i> <?= e($group['group_name']) ?></h3>
     <div>
       <a href="<?= e(base_url('groups/edit.php?id=' . $id)) ?>" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Edit</a>
-      <a href="<?= e(base_url('groups/barcode.php?id=' . $id)) ?>" class="btn btn-outline-dark"><i class="bi bi-upc"></i> Lihat Barcode</a>
       <a href="<?= e(base_url('groups/index.php')) ?>" class="btn btn-outline-primary"><i class="bi bi-arrow-left"></i> Kembali</a>
     </div>
   </div>
 
-  <div class="row g-3 mb-3">
-    <div class="col-md-8">
-      <div class="card h-100">
-        <div class="card-header">Informasi Grup</div>
-        <div class="card-body">
-          <table class="table table-borderless table-sm mb-0">
-            <tr><th width="200">Event</th><td><a href="<?= e(base_url('events/detail.php?id=' . (int) $group['event_id'])) ?>"><?= e($group['event_name']) ?></a></td></tr>
-            <tr><th>Penanggung Jawab</th><td><?= e($group['contact_name'] ?? '-') ?></td></tr>
-            <tr><th>Nomor HP</th><td><?= e($group['contact_phone'] ?? '-') ?></td></tr>
-            <tr><th>Kuota</th><td><?= (int) $group['quota'] ?> orang</td></tr>
-            <tr><th>Kehadiran</th><td><?= $totalPresent ?> / <?= $totalGuests ?> tamu hadir</td></tr>
-            <tr><th>Status</th><td><?= $group['status'] === 'active' ? '<span class="badge text-bg-success">Aktif</span>' : '<span class="badge text-bg-secondary">Nonaktif</span>' ?></td></tr>
-            <tr><th>Catatan</th><td><?= e($group['notes'] ?? '-') ?></td></tr>
-            <tr><th>Dibuat</th><td><?= e(format_datetime($group['created_at'])) ?></td></tr>
-          </table>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card h-100 text-center">
-        <div class="card-header">Barcode</div>
-        <div class="card-body d-flex flex-column justify-content-center align-items-center">
-          <img src="<?= e(base_url('groups/barcode.php?id=' . $id . '&action=view')) ?>" alt="Barcode" class="img-fluid mb-2" style="max-width:260px;">
-          <div class="d-flex gap-2">
-            <a href="<?= e(base_url('groups/barcode.php?id=' . $id . '&action=download')) ?>" class="btn btn-sm btn-primary"><i class="bi bi-download"></i> PNG</a>
-            <a href="<?= e(base_url('groups/barcode.php?id=' . $id)) ?>" class="btn btn-sm btn-outline-secondary"><i class="bi bi-printer"></i> Detail</a>
-          </div>
-        </div>
-      </div>
+  <div class="card mb-3">
+    <div class="card-header">Informasi Grup</div>
+    <div class="card-body">
+      <table class="table table-borderless table-sm mb-0">
+        <tr><th width="200">Event</th><td><a href="<?= e(base_url('events/detail.php?id=' . (int) $group['event_id'])) ?>"><?= e($group['event_name']) ?></a></td></tr>
+        <tr><th>Penanggung Jawab</th><td><?= e($group['contact_name'] ?? '-') ?></td></tr>
+        <tr><th>Nomor HP</th><td><?= e($group['contact_phone'] ?? '-') ?></td></tr>
+        <tr><th>Kuota</th><td><?= (int) $group['quota'] ?> orang</td></tr>
+        <tr><th>Kehadiran</th><td><?= $totalPresent ?> / <?= $totalGuests ?> tamu hadir</td></tr>
+        <tr><th>Status</th><td><?= $group['status'] === 'active' ? '<span class="badge text-bg-success">Aktif</span>' : '<span class="badge text-bg-secondary">Nonaktif</span>' ?></td></tr>
+        <tr><th>Catatan</th><td><?= e($group['notes'] ?? '-') ?></td></tr>
+        <tr><th>Dibuat</th><td><?= e(format_datetime($group['created_at'])) ?></td></tr>
+      </table>
     </div>
   </div>
 
   <div class="card mb-3">
-    <div class="card-header">Presensi 3 Sesi</div>
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span>Presensi Sesi</span>
+      <a href="<?= e(base_url('presensi/sessions/index.php?event_id=' . (int) $group['event_id'])) ?>" class="btn btn-sm btn-outline-secondary"><i class="bi bi-gear"></i> Kelola Sesi</a>
+    </div>
     <div class="card-body">
       <div class="row g-3">
-        <?php foreach (session_types() as $type => $label): ?>
-          <?php $sess = $sessions[$type] ?? null; $checked = $sess && $sess['checked_in_at']; ?>
+        <?php foreach ($sessions as $sess): ?>
+          <?php $checked = $sess['checked_in_at'] !== null; ?>
           <div class="col-md-4">
             <div class="border rounded p-3 text-center h-100 d-flex flex-column justify-content-between">
               <div>
-                <div class="fw-semibold"><?= e($label) ?></div>
+                <div class="fw-semibold"><?= e($sess['name']) ?></div>
                 <div class="small text-muted mb-2">
                   <?= $checked ? e(format_datetime($sess['checked_in_at'])) : 'Belum presensi' ?>
                 </div>
                 <span class="badge <?= $checked ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $checked ? 'Hadir' : 'Belum Hadir' ?></span>
               </div>
-              <?php if ($sess): ?>
-                <form method="post" action="<?= e(base_url('groups/mark_session.php')) ?>" class="mt-2">
-                  <?= csrf_field() ?>
-                  <input type="hidden" name="group_id" value="<?= (int) $id ?>">
-                  <input type="hidden" name="session_type" value="<?= e($type) ?>">
-                  <input type="hidden" name="action" value="<?= $checked ? 'unmark' : 'mark' ?>">
-                  <button type="submit" class="btn btn-sm w-100 <?= $checked ? 'btn-outline-secondary' : 'btn-outline-success' ?>">
-                    <?= $checked ? 'Batalkan' : 'Tandai Hadir' ?>
-                  </button>
-                </form>
-              <?php endif; ?>
+              <form method="post" action="<?= e(base_url('groups/mark_session.php')) ?>" class="mt-2">
+                <?= csrf_field() ?>
+                <input type="hidden" name="group_id" value="<?= (int) $id ?>">
+                <input type="hidden" name="presensi_session_id" value="<?= (int) $sess['id'] ?>">
+                <input type="hidden" name="action" value="<?= $checked ? 'unmark' : 'mark' ?>">
+                <button type="submit" class="btn btn-sm w-100 <?= $checked ? 'btn-outline-secondary' : 'btn-outline-success' ?>">
+                  <?= $checked ? 'Batalkan' : 'Tandai Hadir' ?>
+                </button>
+              </form>
             </div>
           </div>
         <?php endforeach; ?>
+        <?php if (!$sessions): ?>
+          <div class="col-12 text-center text-muted">Belum ada sesi presensi untuk event ini.</div>
+        <?php endif; ?>
       </div>
     </div>
   </div>

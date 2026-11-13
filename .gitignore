@@ -21,6 +21,9 @@
 /storage/*
 !/storage/.htaccess
 
+# ---- Backup database (berisi data pribadi wisudawan, jangan pernah commit) ----
+/database/backups/
+
 # ---- Log & file sementara ----
 *.log
 logs/
