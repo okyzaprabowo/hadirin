@@ -34,9 +34,9 @@ require __DIR__ . '/../includes/sidebar.php';
     <div class="alert alert-warning">Belum ada sesi presensi aktif. <?= is_admin() ? '<a href="' . e(base_url('presensi/sessions/create.php')) . '" class="alert-link">Tambah sesi presensi</a>.' : '' ?></div>
   <?php else: ?>
     <p class="text-muted">
-      Buka salah satu layar di bawah pada laptop/proyektor yang ditempatkan di lokasi masing-masing.
-      QR di layar akan otomatis berganti tiap 5 detik; mahasiswa memindainya lewat menu
-      <strong>Scan QR</strong> di akun mereka sendiri.
+      Buka salah satu layar di bawah pada laptop/proyektor, atau cetak QR-nya dan tempel di lokasi
+      masing-masing. QR ini statis (tidak berganti) selama sesi presensi masih ada; mahasiswa
+      memindainya lewat menu <strong>Scan QR</strong> di akun mereka sendiri.
     </p>
 
     <?php foreach ($byEvent as $eventName => $eventSessions): ?>

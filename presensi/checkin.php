@@ -23,8 +23,8 @@ if (!$parsed) {
     json_response(['success' => false, 'message' => 'QR tidak dikenali. Pastikan Anda scan layar presensi panitia.'], 422);
 }
 
-if (!session_qr_is_valid($parsed['presensi_session_id'], $parsed['event_id'], $parsed['bucket'], $parsed['token'])) {
-    json_response(['success' => false, 'message' => 'QR sudah kedaluwarsa (kode berganti tiap 5 detik). Coba scan ulang.'], 403);
+if (!session_qr_is_valid($parsed['presensi_session_id'], $parsed['event_id'], $parsed['token'])) {
+    json_response(['success' => false, 'message' => 'QR tidak valid. Pastikan Anda scan QR presensi yang benar.'], 403);
 }
 
 $sessionStmt = $db->prepare(

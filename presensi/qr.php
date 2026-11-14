@@ -29,6 +29,5 @@ $png = generate_session_qr_png($content, 420);
 
 header('Content-Type: image/png');
 header('Content-Length: ' . strlen($png));
-header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-header('Pragma: no-cache');
+header('Cache-Control: public, max-age=3600');
 echo $png;

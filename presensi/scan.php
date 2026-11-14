@@ -12,9 +12,8 @@ require __DIR__ . '/../includes/sidebar.php';
 
   <div id="scanSection">
     <div class="alert alert-light border text-center small mb-3">
-      Arahkan kamera ke layar QR yang ditampilkan panitia di lokasi
-      (Absen Masuk / Snack / Makan Siang). Kode berganti tiap 5 detik,
-      jadi cukup arahkan kamera sampai berhasil terbaca.
+      Arahkan kamera ke QR yang ditampilkan/ditempel panitia di lokasi
+      (Absen Masuk / Snack / Makan Siang), lalu scan seperti biasa.
     </div>
 
     <div class="card scanner-card mb-3">

@@ -55,18 +55,22 @@ $statsUrl = base_url('presensi/stats.php?session_id=' . $sessionId);
   <div class="brand">HADIRIN</div>
   <h1><?= e($label) ?></h1>
   <div class="qr-box">
-    <img id="qrImg" src="" alt="QR Presensi">
+    <img id="qrImg" src="<?= e($qrUrl) ?>" alt="QR Presensi">
   </div>
   <div class="event-name"><?= e($session['event_name']) ?></div>
   <div class="stats">Sudah presensi: <strong id="statChecked">-</strong> / <span id="statTotal">-</span></div>
+  <div class="print-hint no-print">QR ini statis (tidak berganti) &mdash; bisa di-print dan ditempel di titik presensi. <a href="#" id="printLink" style="color:#fff;text-decoration:underline;">Cetak halaman ini</a></div>
+
+  <style>
+    @media print {
+      body { background: #fff; color: #000; }
+      .no-print, .stats { display: none; }
+      .qr-box { box-shadow: none; }
+    }
+  </style>
 
   <script>
-    var qrUrl = <?= json_encode($qrUrl) ?>;
     var statsUrl = <?= json_encode($statsUrl) ?>;
-
-    function refreshQr() {
-      document.getElementById('qrImg').src = qrUrl + '&t=' + Date.now();
-    }
 
     function refreshStats() {
       fetch(statsUrl + '&t=' + Date.now())
@@ -79,9 +83,12 @@ $statsUrl = base_url('presensi/stats.php?session_id=' . $sessionId);
         .catch(function () {});
     }
 
-    refreshQr();
+    document.getElementById('printLink').addEventListener('click', function (e) {
+      e.preventDefault();
+      window.print();
+    });
+
     refreshStats();
-    setInterval(refreshQr, 5000);
     setInterval(refreshStats, 5000);
   </script>
 </body>

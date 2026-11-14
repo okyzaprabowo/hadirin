@@ -159,10 +159,13 @@ Alur data berjenjang: **Event → Grup Undangan → Tamu**, dengan presensi per
 4. Peserta login dan hanya melihat 2 menu: **Dashboard** (data diri + ortu +
    status tiap sesi presensi) dan **Scan QR**.
 5. **Admin/Panitia** membuka salah satu layar sesi dari menu **Layar
-   Presensi** (`presensi/display.php?session_id=...`) di laptop/proyektor
-   yang ditaruh di lokasi masing-masing sesi (pintu masuk, meja snack, dst).
-   Layar ini menampilkan QR yang **berganti setiap 5 detik** (HMAC
-   time-based, lihat `includes/session_qr.php`) — bukan kode statis per tamu.
+   Presensi** (`presensi/display.php?session_id=...`) di laptop/proyektor,
+   atau cukup **print** QR-nya (tombol "Cetak halaman ini", atau akses
+   langsung `presensi/qr.php?session_id=...`) dan tempel di lokasi masing-
+   masing sesi (pintu masuk, meja snack, dst). QR ini **statis** — tidak
+   berganti selama sesi presensi tersebut masih ada (HMAC per sesi+event,
+   lihat `includes/session_qr.php`) — bukan kode unik per tamu, jadi aman
+   dicetak dan dipakai berulang oleh semua tamu di sesi itu.
 6. Peserta, dari menu **Scan QR** di akunnya sendiri, memotret QR di layar
    tersebut dengan kamera HP-nya. Karena ia sudah login, sistem tahu ini
    grup siapa; presensi dicatat **per grup per sesi** (mewakili peserta +
