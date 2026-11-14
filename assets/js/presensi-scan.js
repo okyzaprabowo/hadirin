@@ -37,20 +37,53 @@
       });
   }
 
-  function loadCameras() {
-    if (!window.Html5Qrcode || !elCameraSelect) return;
-    Html5Qrcode.getCameras().then(function (devices) {
-      cameras = devices || [];
-      if (cameras.length > 1) {
-        elCameraSelect.classList.remove('d-none');
-        elCameraSelect.innerHTML = cameras.map(function (c, i) {
-          return '<option value="' + c.id + '">' + escapeHtml(c.label || ('Kamera ' + (i + 1))) + '</option>';
-        }).join('');
-        var backIndex = cameras.findIndex(function (c) { return /back|belakang|rear/i.test(c.label || ''); });
-        if (backIndex >= 0) elCameraSelect.selectedIndex = backIndex;
+  function pickBackCameraId(list) {
+    var back = (list || []).find(function (c) { return /back|belakang|rear/i.test(c.label || ''); });
+    return back ? back.id : null;
+  }
+
+  function renderCameraSelect() {
+    if (!elCameraSelect || cameras.length <= 1) return;
+    elCameraSelect.classList.remove('d-none');
+    elCameraSelect.innerHTML = cameras.map(function (c, i) {
+      return '<option value="' + c.id + '">' + escapeHtml(c.label || ('Kamera ' + (i + 1))) + '</option>';
+    }).join('');
+    var backIndex = cameras.findIndex(function (c) { return /back|belakang|rear/i.test(c.label || ''); });
+    if (backIndex >= 0) elCameraSelect.selectedIndex = backIndex;
+    elCameraSelect.onchange = function () {
+      if (!elCameraSelect.value) return;
+      stopScanning().then(function () {
+        tryStartWithConfigs([{ deviceId: { exact: elCameraSelect.value } }, { facingMode: 'environment' }, {}]);
+      });
+    };
+  }
+
+  // Beberapa browser (terutama Chrome/WebKit di iOS) tidak konsisten
+  // menangani facingMode:'environment' untuk memilih kamera belakang, jadi
+  // kita coba beberapa cara berurutan: deviceId kamera belakang (by label)
+  // -> facingMode environment -> kamera apa pun yang tersedia.
+  function tryStartWithConfigs(configs) {
+    if (!configs.length) {
+      showAlert('danger', 'Tidak dapat mengakses kamera manapun di perangkat ini.');
+      return;
+    }
+    var config = configs[0];
+    var rest = configs.slice(1);
+    html5QrCode.start(
+      config,
+      { fps: 10, qrbox: 240 },
+      onScanSuccess,
+      function () { /* gagal baca per-frame, abaikan */ }
+    ).then(function () {
+      isScanning = true;
+      elBtnStart.classList.add('d-none');
+      elBtnStop.classList.remove('d-none');
+    }).catch(function (err) {
+      if (rest.length) {
+        tryStartWithConfigs(rest);
+      } else {
+        showAlert('danger', 'Tidak dapat mengakses kamera: ' + err);
       }
-    }).catch(function () {
-      // izin kamera belum diberikan; biarkan sampai pengguna menekan Mulai Scan
     });
   }
 
@@ -61,26 +94,30 @@
       verbose: false
     });
 
-    var cameraConfig = elCameraSelect && elCameraSelect.value ? { deviceId: { exact: elCameraSelect.value } } : { facingMode: 'environment' };
+    Html5Qrcode.getCameras().then(function (devices) {
+      cameras = devices || [];
+      renderCameraSelect();
 
-    html5QrCode.start(
-      cameraConfig,
-      { fps: 10, qrbox: 240 },
-      onScanSuccess,
-      function () { /* gagal baca per-frame, abaikan */ }
-    ).then(function () {
-      isScanning = true;
-      elBtnStart.classList.add('d-none');
-      elBtnStop.classList.remove('d-none');
-      loadCameras();
-    }).catch(function (err) {
-      showAlert('danger', 'Tidak dapat mengakses kamera: ' + err);
+      var configs = [];
+      if (elCameraSelect && elCameraSelect.value) {
+        configs.push({ deviceId: { exact: elCameraSelect.value } });
+      } else {
+        var backId = pickBackCameraId(cameras);
+        if (backId) configs.push({ deviceId: { exact: backId } });
+      }
+      configs.push({ facingMode: 'environment' });
+      configs.push({});
+      tryStartWithConfigs(configs);
+    }).catch(function () {
+      // Enumerasi kamera gagal (izin belum diberikan) -- start() di bawah
+      // akan memicu prompt izin kamera dari browser.
+      tryStartWithConfigs([{ facingMode: 'environment' }, {}]);
     });
   }
 
   function stopScanning() {
-    if (!html5QrCode || !isScanning) return;
-    html5QrCode.stop().then(function () {
+    if (!html5QrCode || !isScanning) return Promise.resolve();
+    return html5QrCode.stop().then(function () {
       isScanning = false;
       elBtnStart.classList.remove('d-none');
       elBtnStop.classList.add('d-none');
@@ -143,6 +180,4 @@
 
   if (elBtnStart) elBtnStart.addEventListener('click', startScanning);
   if (elBtnStop) elBtnStop.addEventListener('click', stopScanning);
-
-  loadCameras();
 })();
