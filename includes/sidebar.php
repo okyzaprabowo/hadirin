@@ -59,6 +59,9 @@ function nav_active(string $scriptPath, string $needle): string
       <a class="nav-link <?= nav_active($scriptPath, '/presensi/') ?>" href="<?= e(base_url('presensi/index.php')) ?>">
         <i class="bi bi-qr-code"></i> Layar Presensi
       </a>
+      <a class="nav-link <?= nav_active($scriptPath, '/monitoring/') ?>" href="<?= e(base_url('monitoring/index.php')) ?>">
+        <i class="bi bi-activity"></i> Monitoring Kehadiran
+      </a>
       <a class="nav-link <?= nav_active($scriptPath, '/account/') ?>" href="<?= e(base_url('account/index.php')) ?>">
         <i class="bi bi-gear"></i> Pengaturan Akun
       </a>

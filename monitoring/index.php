@@ -1,28 +1,12 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../config/bootstrap.php';
-require_role('admin');
+require_role(['admin', 'petugas']);
 
 $db = get_db();
 $pageTitle = 'Monitoring Kehadiran';
 
-$eventId = input_int($_GET, 'event_id', 0);
-$groupName = input_str($_GET, 'group_name');
-$guestName = input_str($_GET, 'guest_name');
-$status = input_str($_GET, 'status');
-$dateFrom = input_str($_GET, 'date_from');
-$dateTo = input_str($_GET, 'date_to');
-
-$allEvents = $db->query('SELECT id, event_name FROM events ORDER BY event_name ASC')->fetchAll();
-
-$officerActivity = $db->query(
-    "SELECT u.full_name, COUNT(cl.id) AS total_checkins
-     FROM users u
-     LEFT JOIN checkin_logs cl ON cl.scanned_by = u.id AND cl.action = 'checkin'
-     WHERE u.role = 'petugas'
-     GROUP BY u.id, u.full_name
-     ORDER BY total_checkins DESC"
-)->fetchAll();
+$allEvents = $db->query("SELECT id, event_name FROM events ORDER BY status = 'active' DESC, event_date DESC")->fetchAll();
 
 require __DIR__ . '/../includes/header.php';
 require __DIR__ . '/../includes/sidebar.php';
@@ -33,62 +17,60 @@ require __DIR__ . '/../includes/sidebar.php';
   <div class="card mb-3">
     <div class="card-body">
       <form id="filterForm" class="row g-2">
-        <div class="col-md-2">
-          <select name="event_id" class="form-select">
-            <option value="0">Semua Event</option>
+        <div class="col-md-3">
+          <select name="event_id" id="filterEvent" class="form-select">
             <?php foreach ($allEvents as $ev): ?>
-              <option value="<?= (int) $ev['id'] ?>" <?= $eventId === (int) $ev['id'] ? 'selected' : '' ?>><?= e($ev['event_name']) ?></option>
+              <option value="<?= (int) $ev['id'] ?>"><?= e($ev['event_name']) ?></option>
             <?php endforeach; ?>
           </select>
         </div>
-        <div class="col-md-2">
-          <input type="text" name="group_name" class="form-control" placeholder="Nama grup..." value="<?= e($groupName) ?>">
+        <div class="col-md-3">
+          <input type="text" name="search" class="form-control" placeholder="Cari nama grup / NIM / penanggung jawab...">
         </div>
-        <div class="col-md-2">
-          <input type="text" name="guest_name" class="form-control" placeholder="Nama tamu..." value="<?= e($guestName) ?>">
-        </div>
-        <div class="col-md-2">
-          <select name="status" class="form-select">
-            <option value="">Semua Status</option>
-            <option value="present" <?= $status === 'present' ? 'selected' : '' ?>>Sudah Hadir</option>
-            <option value="absent" <?= $status === 'absent' ? 'selected' : '' ?>>Belum Hadir</option>
+        <div class="col-md-3">
+          <select name="session_id" id="filterSession" class="form-select">
+            <option value="0">Semua Sesi</option>
           </select>
         </div>
-        <div class="col-md-2">
-          <input type="date" name="date_from" class="form-control" value="<?= e($dateFrom) ?>">
-        </div>
-        <div class="col-md-2">
-          <input type="date" name="date_to" class="form-control" value="<?= e($dateTo) ?>">
+        <div class="col-md-3">
+          <select name="status" class="form-select">
+            <option value="">Semua Status</option>
+            <option value="present">Sudah Hadir (di sesi terpilih)</option>
+            <option value="absent">Belum Hadir (di sesi terpilih)</option>
+          </select>
         </div>
       </form>
     </div>
   </div>
 
   <div class="row g-3 mb-3">
-    <div class="col-md-4">
-      <div class="stat-card"><div class="stat-value" id="statTotal">-</div><div class="stat-label">Total Tamu</div></div>
+    <div class="col-md-3">
+      <div class="stat-card"><div class="stat-value" id="statGroups">-</div><div class="stat-label">Total Grup</div></div>
     </div>
-    <div class="col-md-4">
-      <div class="stat-card"><div class="stat-value text-success" id="statPresent">-</div><div class="stat-label">Sudah Hadir</div></div>
+    <div class="col-md-3">
+      <div class="stat-card"><div class="stat-value text-success" id="statChecked">-</div><div class="stat-label">Slot Presensi Terisi</div></div>
     </div>
-    <div class="col-md-4">
-      <div class="stat-card"><div class="stat-value text-secondary" id="statAbsent">-</div><div class="stat-label">Belum Hadir</div></div>
+    <div class="col-md-3">
+      <div class="stat-card"><div class="stat-value text-secondary" id="statNotChecked">-</div><div class="stat-label">Slot Presensi Kosong</div></div>
+    </div>
+    <div class="col-md-3">
+      <div class="stat-card"><div class="stat-value" id="statPercentage">-</div><div class="stat-label">Persentase Presensi</div></div>
     </div>
   </div>
 
   <div class="row g-3">
-    <div class="col-lg-8">
+    <div class="col-lg-9">
       <div class="card">
         <div class="card-header d-flex justify-content-between">
-          <span>Data Kehadiran</span>
+          <span>Status Presensi per Grup</span>
           <small class="text-muted" id="lastUpdated">Memuat...</small>
         </div>
         <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-sm mb-0">
-              <thead><tr><th>Nama Tamu</th><th>Event</th><th>Grup</th><th>Status</th><th>Waktu Check-in</th></tr></thead>
+            <table class="table table-sm mb-0 align-middle">
+              <thead id="monitorTableHead"></thead>
               <tbody id="monitorTableBody">
-                <tr><td colspan="5" class="text-center text-muted py-4">Memuat data...</td></tr>
+                <tr><td class="text-center text-muted py-4">Memuat data...</td></tr>
               </tbody>
             </table>
           </div>
@@ -99,19 +81,14 @@ require __DIR__ . '/../includes/sidebar.php';
         </div>
       </div>
     </div>
-    <div class="col-lg-4">
+    <div class="col-lg-3">
       <div class="card">
-        <div class="card-header">Aktivitas Petugas</div>
+        <div class="card-header">Ringkasan per Sesi</div>
         <div class="card-body p-0">
           <table class="table table-sm mb-0">
-            <thead><tr><th>Petugas</th><th>Total Check-in</th></tr></thead>
-            <tbody>
-            <?php foreach ($officerActivity as $o): ?>
-              <tr><td><?= e($o['full_name']) ?></td><td><?= (int) $o['total_checkins'] ?></td></tr>
-            <?php endforeach; ?>
-            <?php if (!$officerActivity): ?>
-              <tr><td colspan="2" class="text-center text-muted py-3">Belum ada petugas.</td></tr>
-            <?php endif; ?>
+            <thead><tr><th>Sesi</th><th>Hadir</th></tr></thead>
+            <tbody id="sessionSummaryBody">
+              <tr><td colspan="2" class="text-center text-muted py-3">Memuat...</td></tr>
             </tbody>
           </table>
         </div>
@@ -128,6 +105,7 @@ function escapeHtml(str) {
 }
 
 let monitorPage = 1;
+let currentSessions = [];
 
 function renderPagination(pagination) {
   const info = document.getElementById('monitorPageInfo');
@@ -141,7 +119,7 @@ function renderPagination(pagination) {
 
   const start = (pagination.page - 1) * pagination.per_page + 1;
   const end = Math.min(pagination.page * pagination.per_page, pagination.total);
-  info.textContent = `Menampilkan ${start}-${end} dari ${pagination.total} data`;
+  info.textContent = `Menampilkan ${start}-${end} dari ${pagination.total} grup`;
 
   let html = '';
   html += `<li class="page-item ${pagination.page <= 1 ? 'disabled' : ''}">
@@ -167,6 +145,59 @@ function renderPagination(pagination) {
   });
 }
 
+function renderSessionFilterOptions(sessions) {
+  const select = document.getElementById('filterSession');
+  const current = select.value;
+  select.innerHTML = '<option value="0">Semua Sesi</option>' +
+    sessions.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+  if (sessions.some(s => String(s.id) === current)) {
+    select.value = current;
+  }
+}
+
+function renderTableHead(sessions) {
+  const thead = document.getElementById('monitorTableHead');
+  let html = '<tr><th>Nama Grup</th><th>Penanggung Jawab</th>';
+  sessions.forEach(s => { html += `<th class="text-center">${escapeHtml(s.name)}</th>`; });
+  html += '<th class="text-center">Total</th></tr>';
+  thead.innerHTML = html;
+}
+
+function sessionBadge(checkedInAt) {
+  if (checkedInAt) {
+    return `<span class="badge text-bg-success" title="${escapeHtml(checkedInAt)}">Hadir</span><div class="small text-muted">${escapeHtml(checkedInAt)}</div>`;
+  }
+  return '<span class="badge text-bg-secondary">Belum</span>';
+}
+
+function renderRows(rows, sessions) {
+  const tbody = document.getElementById('monitorTableBody');
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${sessions.length + 3}" class="text-center text-muted py-4">Tidak ada data.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const sessionCells = r.sessions.map(s => `<td class="text-center">${sessionBadge(s.checked_in_at)}</td>`).join('');
+    return `<tr>
+      <td>${escapeHtml(r.group_name)}</td>
+      <td>${escapeHtml(r.contact_name ?? '-')}</td>
+      ${sessionCells}
+      <td class="text-center fw-semibold">${r.total_present} / ${r.total_sessions}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSessionSummary(stats) {
+  const tbody = document.getElementById('sessionSummaryBody');
+  if (!stats.length) {
+    tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">Belum ada sesi.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = stats.map(s => `
+    <tr><td>${escapeHtml(s.name)}</td><td>${s.checked_in} / ${s.total}</td></tr>
+  `).join('');
+}
+
 function loadMonitoringData() {
   const params = new URLSearchParams(new FormData(document.getElementById('filterForm')));
   params.set('page', monitorPage);
@@ -174,24 +205,18 @@ function loadMonitoringData() {
     .then(r => r.json())
     .then(data => {
       if (!data.success) return;
-      document.getElementById('statTotal').textContent = data.stats.total_guests;
-      document.getElementById('statPresent').textContent = data.stats.total_present;
-      document.getElementById('statAbsent').textContent = data.stats.total_absent;
+      currentSessions = data.sessions;
 
-      const tbody = document.getElementById('monitorTableBody');
-      if (data.rows.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Tidak ada data.</td></tr>';
-      } else {
-        tbody.innerHTML = data.rows.map(r => `
-          <tr>
-            <td>${escapeHtml(r.full_name)}</td>
-            <td>${escapeHtml(r.event_name)}</td>
-            <td>${escapeHtml(r.group_name)}</td>
-            <td>${r.status === 'Sudah Hadir' ? '<span class="badge text-bg-success">Sudah Hadir</span>' : '<span class="badge text-bg-secondary">Belum Hadir</span>'}</td>
-            <td>${escapeHtml(r.checkin_at ?? '-')}</td>
-          </tr>
-        `).join('');
-      }
+      document.getElementById('statGroups').textContent = data.stats.total_groups;
+      document.getElementById('statChecked').textContent = data.stats.total_checked;
+      document.getElementById('statNotChecked').textContent = data.stats.total_not_checked;
+      const pct = data.stats.total_slots > 0 ? Math.round((data.stats.total_checked / data.stats.total_slots) * 1000) / 10 : 0;
+      document.getElementById('statPercentage').textContent = pct + '%';
+
+      renderSessionFilterOptions(data.sessions);
+      renderTableHead(data.sessions);
+      renderRows(data.rows, data.sessions);
+      renderSessionSummary(data.per_session_stats);
       renderPagination(data.pagination);
       document.getElementById('lastUpdated').textContent = 'Diperbarui ' + new Date().toLocaleTimeString('id-ID');
     })
